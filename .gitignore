@@ -1,2 +1,7 @@
-dist/
+/node_modules
+*.sw[po]
+/store
+target
+/.cargo
+/dist
 *.orig
