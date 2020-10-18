@@ -1,8 +1,8 @@
-import path from 'path';
-import fs from 'fs';
-import mkdirp from 'mkdirp-promise';
+const path = require('path');
+const fs = require('fs');
+const mkdirp = require('mkdirp-promise');
 
-export class Store {
+class Store {
   dir = path.join(__dirname, '../../../store');
 
   async load(uri) {
@@ -18,3 +18,5 @@ export class Store {
     await fs.writeFile(filename, JSON.stringify(config), 'utf8');
   }
 }
+
+module.exports = { Store };

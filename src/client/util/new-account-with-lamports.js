@@ -1,7 +1,7 @@
-import { Account } from '@solana/web3.js';
-import { sleep } from './sleep';
+const { Account } = require('@solana/web3.js');
+const { sleep } = require('./sleep');
 
-export async function newAccountWithLamports(connection, lamports = 1000000) {
+async function newAccountWithLamports(connection, lamports = 1000000) {
   const account = new Account();
 
   let retries = 10;
@@ -18,3 +18,5 @@ export async function newAccountWithLamports(connection, lamports = 1000000) {
   }
   throw new Error(`Airdrop of ${lamports} failed`);
 }
+
+module.exports = { newAccountWithLamports }

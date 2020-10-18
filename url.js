@@ -1,8 +1,8 @@
 // To connect to a public cluster, set `export LIVE=1` in your
 // environment. By default, `LIVE=1` will connect to the devnet cluster.
 
-import { clusterApiUrl } from '@solana/web3.js';
-import dotenv from 'dotenv';
+const { clusterApiUrl } = require('@solana/web3.js');
+const dotenv = require('dotenv');
 
 function chooseCluster() {
   dotenv.config();
@@ -17,15 +17,18 @@ function chooseCluster() {
   throw 'Unknown cluster "' + process.env.CLUSTER + '", check the .env file';
 }
 
-export const cluster = chooseCluster();
+const cluster = chooseCluster();
 
-export const url =
+const url =
   process.env.RPC_URL ||
   (process.env.LIVE ? clusterApiUrl(cluster, false) : 'http://localhost:8899');
 
-export const urlTls =
+const urlTls =
   process.env.RPC_URL ||
   (process.env.LIVE ? clusterApiUrl(cluster, true) : 'http://localhost:8899');
 
-export let walletUrl =
+  const walletUrl =
   process.env.WALLET_URL || 'https://solana-example-webwallet.herokuapp.com/';
+
+
+module.exports = { cluster, url, urlTls, walletUrl }

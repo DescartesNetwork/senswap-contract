@@ -36,6 +36,7 @@
     "dotenv": "^8.2.0",
     "fs": "0.0.1-security",
     "json-to-pretty-yaml": "^1.2.2",
+    "mkdirp-promise": "^5.0.1",
     "path": "^0.12.7"
   }
 }

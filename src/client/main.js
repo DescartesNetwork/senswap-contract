@@ -1,4 +1,4 @@
-import { establishConnection, establishPayer, loadProgram, sayHello, reportHellos } from './hello_world';
+const { establishConnection, establishPayer, loadProgram, sayHello, reportHellos } = require('./hello_world');
 
 async function main() {
   console.log("Let's say hello to a Solana account...");

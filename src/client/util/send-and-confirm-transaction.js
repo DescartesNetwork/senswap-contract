@@ -1,13 +1,13 @@
-import { sendAndConfirmTransaction as realSendAndConfirmTransaction } from '@solana/web3.js';
-import YAML from 'json-to-pretty-yaml';
+const { sendAndConfirmTransaction: realSendAndConfirmTransaction } = require('@solana/web3.js');
+const YAML = require('json-to-pretty-yaml');
 
 let notify = () => undefined;
 
-export function onTransaction(callback) {
+function onTransaction(callback) {
   notify = callback;
 }
 
-export async function sendAndConfirmTransaction(title, connection, transaction, ...signers) {
+async function sendAndConfirmTransaction(title, connection, transaction, ...signers) {
   const when = Date.now();
 
   const signature = await realSendAndConfirmTransaction(
@@ -34,3 +34,5 @@ export async function sendAndConfirmTransaction(title, connection, transaction, 
 
   notify(title, YAML.stringify(body).replace(/"/g, ''));
 }
+
+module.exports = { onTransaction, sendAndConfirmTransaction }

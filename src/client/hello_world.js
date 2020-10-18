@@ -1,4 +1,4 @@
-import {
+const {
   Account,
   Connection,
   BpfLoader,
@@ -8,14 +8,14 @@ import {
   SystemProgram,
   TransactionInstruction,
   Transaction,
-} from '@solana/web3.js';
-import fs from 'fs';
-import * as BufferLayout from 'buffer-layout';
+} = require('@solana/web3.js');
+const fs = require('fs');
+const BufferLayout = require('buffer-layout');
 
-import { url, urlTls } from '../../url';
-import { Store } from './util/store';
-import { newAccountWithLamports } from './util/new-account-with-lamports';
-import { sendAndConfirmTransaction } from './util/send-and-confirm-transaction';
+const { url, urlTls } = require('../../url');
+const { Store } = require('./util/store');
+const { newAccountWithLamports } = require('./util/new-account-with-lamports');
+const { sendAndConfirmTransaction } = require('./util/send-and-confirm-transaction');
 
 
 let connection;
@@ -35,7 +35,7 @@ const greetedAccountDataLayout = BufferLayout.struct([
 /**
  * Establish a connection to the cluster
  */
-export async function establishConnection() {
+async function establishConnection() {
   connection = new Connection(url, 'recent');
   const version = await connection.getVersion();
   console.log('Connection to cluster established:', url, version);
@@ -44,7 +44,7 @@ export async function establishConnection() {
 /**
  * Establish an account to pay for everything
  */
-export async function establishPayer() {
+async function establishPayer() {
   if (!payerAccount) {
     let fees = 0;
     const { feeCalculator } = await connection.getRecentBlockhash();
@@ -76,7 +76,7 @@ export async function establishPayer() {
 /**
  * Load the hello world BPF program if not already loaded
  */
-export async function loadProgram() {
+async function loadProgram() {
   const store = new Store();
 
   // Check if the program has already been loaded
@@ -138,7 +138,7 @@ export async function loadProgram() {
 /**
  * Say hello
  */
-export async function sayHello() {
+async function sayHello() {
   console.log('Saying hello to', greetedPubkey.toBase58());
   const instruction = new TransactionInstruction({
     keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
@@ -156,7 +156,7 @@ export async function sayHello() {
 /**
  * Report the number of times the greeted account has been said hello to
  */
-export async function reportHellos() {
+async function reportHellos() {
   const accountInfo = await connection.getAccountInfo(greetedPubkey);
   if (accountInfo === null) {
     throw 'Error: cannot find the greeted account';
@@ -164,3 +164,5 @@ export async function reportHellos() {
   const info = greetedAccountDataLayout.decode(Buffer.from(accountInfo.data));
   console.log(greetedPubkey.toBase58(), 'has been greeted', info.numGreets.toString(), 'times');
 }
+
+module.exports = { establishConnection, establishPayer, loadProgram, sayHello, reportHellos }
