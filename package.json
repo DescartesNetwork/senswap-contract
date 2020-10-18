@@ -30,5 +30,12 @@
   "bugs": {
     "url": "https://github.com/DescartesNetwork/senswap-contract/issues"
   },
-  "homepage": "https://github.com/DescartesNetwork/senswap-contract#readme"
+  "homepage": "https://github.com/DescartesNetwork/senswap-contract#readme",
+  "dependencies": {
+    "@solana/web3.js": "^0.81.0",
+    "buffer-layout": "^1.2.0",
+    "fs": "0.0.1-security",
+    "json-to-pretty-yaml": "^1.2.2",
+    "path": "^0.12.7"
+  }
 }

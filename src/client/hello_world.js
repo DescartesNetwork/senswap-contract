@@ -1,5 +1,3 @@
-// @flow
-
 import {
   Account,
   Connection,
@@ -11,33 +9,19 @@ import {
   TransactionInstruction,
   Transaction,
 } from '@solana/web3.js';
-import fs from 'mz/fs';
+import fs from 'fs';
 import * as BufferLayout from 'buffer-layout';
 
-import {url, urlTls} from '../../url';
-import {Store} from './util/store';
-import {newAccountWithLamports} from './util/new-account-with-lamports';
-import {sendAndConfirmTransaction} from './util/send-and-confirm-transaction';
+import { url, urlTls } from '../../url';
+import { Store } from './util/store';
+import { newAccountWithLamports } from './util/new-account-with-lamports';
+import { sendAndConfirmTransaction } from './util/send-and-confirm-transaction';
 
-/**
- * Connection to the network
- */
-let connection: Connection;
 
-/**
- * Connection to the network
- */
-let payerAccount: Account;
-
-/**
- * Hello world's program id
- */
-let programId: PublicKey;
-
-/**
- * The public key of the account we are saying hello to
- */
-let greetedPubkey: PublicKey;
+let connection;
+let payerAccount;
+let programId;
+let greetedPubkey;
 
 const pathToProgram = 'dist/program/helloworld.so';
 
@@ -51,7 +35,7 @@ const greetedAccountDataLayout = BufferLayout.struct([
 /**
  * Establish a connection to the cluster
  */
-export async function establishConnection(): Promise<void> {
+export async function establishConnection() {
   connection = new Connection(url, 'recent');
   const version = await connection.getVersion();
   console.log('Connection to cluster established:', url, version);
@@ -60,17 +44,17 @@ export async function establishConnection(): Promise<void> {
 /**
  * Establish an account to pay for everything
  */
-export async function establishPayer(): Promise<void> {
+export async function establishPayer() {
   if (!payerAccount) {
     let fees = 0;
-    const {feeCalculator} = await connection.getRecentBlockhash();
+    const { feeCalculator } = await connection.getRecentBlockhash();
 
     // Calculate the cost to load the program
     const data = await fs.readFile(pathToProgram);
     const NUM_RETRIES = 500; // allow some number of retries
     fees +=
       feeCalculator.lamportsPerSignature *
-        (BpfLoader.getMinNumSignatures(data.length) + NUM_RETRIES) +
+      (BpfLoader.getMinNumSignatures(data.length) + NUM_RETRIES) +
       (await connection.getMinimumBalanceForRentExemption(data.length));
 
     // Calculate the cost to fund the greeter account
@@ -86,19 +70,13 @@ export async function establishPayer(): Promise<void> {
   }
 
   const lamports = await connection.getBalance(payerAccount.publicKey);
-  console.log(
-    'Using account',
-    payerAccount.publicKey.toBase58(),
-    'containing',
-    lamports / LAMPORTS_PER_SOL,
-    'Sol to pay for fees',
-  );
+  console.log('Using account', payerAccount.publicKey.toBase58(), 'containing', lamports / LAMPORTS_PER_SOL, 'Sol to pay for fees');
 }
 
 /**
  * Load the hello world BPF program if not already loaded
  */
-export async function loadProgram(): Promise<void> {
+export async function loadProgram() {
   const store = new Store();
 
   // Check if the program has already been loaded
@@ -107,10 +85,9 @@ export async function loadProgram(): Promise<void> {
     programId = new PublicKey(config.programId);
     greetedPubkey = new PublicKey(config.greetedPubkey);
     await connection.getAccountInfo(programId);
-    console.log('Program already loaded to account', programId.toBase58());
-    return;
+    return console.log('Program already loaded to account', programId.toBase58());
   } catch (err) {
-    // try to load the program
+    console.error(err);
   }
 
   // Load the program
@@ -161,10 +138,10 @@ export async function loadProgram(): Promise<void> {
 /**
  * Say hello
  */
-export async function sayHello(): Promise<void> {
+export async function sayHello() {
   console.log('Saying hello to', greetedPubkey.toBase58());
   const instruction = new TransactionInstruction({
-    keys: [{pubkey: greetedPubkey, isSigner: false, isWritable: true}],
+    keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
     programId,
     data: Buffer.alloc(0), // All instructions are hellos
   });
@@ -179,16 +156,11 @@ export async function sayHello(): Promise<void> {
 /**
  * Report the number of times the greeted account has been said hello to
  */
-export async function reportHellos(): Promise<void> {
+export async function reportHellos() {
   const accountInfo = await connection.getAccountInfo(greetedPubkey);
   if (accountInfo === null) {
     throw 'Error: cannot find the greeted account';
   }
   const info = greetedAccountDataLayout.decode(Buffer.from(accountInfo.data));
-  console.log(
-    greetedPubkey.toBase58(),
-    'has been greeted',
-    info.numGreets.toString(),
-    'times',
-  );
+  console.log(greetedPubkey.toBase58(), 'has been greeted', info.numGreets.toString(), 'times');
 }
