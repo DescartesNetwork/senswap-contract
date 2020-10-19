@@ -1,0 +1,42 @@
+{
+  "name": "senswap-contract",
+  "version": "1.0.0",
+  "description": "Senswap project",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/client/main.js",
+    "bpf-sdk:update": "solana-bpf-sdk-install node_modules/@solana/web3.js && npm run clean",
+    "clean:store": "rm -rf store",
+    "build": "./src/program/do.sh build && npm run clean:store",
+    "clean": "./src/program/do.sh clean && rm -rf ./dist && npm run clean:store",
+    "test": "./src/program/do.sh test",
+    "cluster:localnet": "npm run clean:store && rm -f .env",
+    "cluster:devnet": "npm run clean:store && cp cluster-devnet.env .env",
+    "cluster:testnet": "npm run clean:store && cp cluster-testnet.env .env",
+    "cluster:mainnet-beta": "npm run clean:store && cp cluster-mainnet-beta.env .env",
+    "localnet:update": "solana-localnet update",
+    "localnet:up": "set -x; solana-localnet down; set -e; solana-localnet up",
+    "localnet:down": "solana-localnet down",
+    "localnet:logs": "solana-localnet logs -f",
+    "postinstall": "npm run bpf-sdk:update && cargo update --manifest-path=src/program/Cargo.toml"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DescartesNetwork/senswap-contract.git"
+  },
+  "author": "Tu Phan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DescartesNetwork/senswap-contract/issues"
+  },
+  "homepage": "https://github.com/DescartesNetwork/senswap-contract#readme",
+  "dependencies": {
+    "@solana/web3.js": "^0.73.0",
+    "buffer-layout": "^1.2.0",
+    "dotenv": "^8.2.0",
+    "fs": "0.0.1-security",
+    "json-to-pretty-yaml": "^1.2.2",
+    "mkdirp-promise": "^5.0.1",
+    "path": "^0.12.7"
+  }
+}
