@@ -48,27 +48,22 @@ async function establishPayer() {
   if (!payerAccount) {
     let fees = 0;
     const { feeCalculator } = await connection.getRecentBlockhash();
-
     // Calculate the cost to load the program
-    const data = await fs.readFile(pathToProgram);
+    const data = fs.readFileSync(pathToProgram);
     const NUM_RETRIES = 500; // allow some number of retries
     fees +=
       feeCalculator.lamportsPerSignature *
       (BpfLoader.getMinNumSignatures(data.length) + NUM_RETRIES) +
       (await connection.getMinimumBalanceForRentExemption(data.length));
-
     // Calculate the cost to fund the greeter account
     fees += await await connection.getMinimumBalanceForRentExemption(
       greetedAccountDataLayout.span,
     );
-
     // Calculate the cost of sending the transactions
     fees += feeCalculator.lamportsPerSignature * 100; // wag
-
     // Fund a new payer via airdrop
     payerAccount = await newAccountWithLamports(connection, fees);
   }
-
   const lamports = await connection.getBalance(payerAccount.publicKey);
   console.log('Using account', payerAccount.publicKey.toBase58(), 'containing', lamports / LAMPORTS_PER_SOL, 'Sol to pay for fees');
 }
@@ -78,21 +73,18 @@ async function establishPayer() {
  */
 async function loadProgram() {
   const store = new Store();
-
   // Check if the program has already been loaded
-  try {
-    let config = await store.load('config.json');
+  let config = store.load('config.json');
+  if (config) {
     programId = new PublicKey(config.programId);
     greetedPubkey = new PublicKey(config.greetedPubkey);
     await connection.getAccountInfo(programId);
     return console.log('Program already loaded to account', programId.toBase58());
-  } catch (err) {
-    console.error(err);
   }
 
   // Load the program
   console.log('Loading hello world program...');
-  const data = await fs.readFile(pathToProgram);
+  const data = fs.readFileSync(pathToProgram);
   const programAccount = new Account();
   await BpfLoader.load(
     connection,

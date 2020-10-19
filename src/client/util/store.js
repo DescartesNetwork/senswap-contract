@@ -5,17 +5,21 @@ const mkdirp = require('mkdirp-promise');
 class Store {
   dir = path.join(__dirname, '../../../store');
 
-  async load(uri) {
-    const filename = path.join(this.dir, uri);
-    const data = await fs.readFile(filename, 'utf8');
-    const config = JSON.parse(data);
-    return config;
+  load(uri) {
+    try {
+      const filename = path.join(this.dir, uri);
+      const data = fs.readFileSync(filename, 'utf8');
+      const config = JSON.parse(data);
+      return config;
+    } catch (er) {
+      return null;
+    }
   }
 
   async save(uri, config) {
     await mkdirp(this.dir);
     const filename = path.join(this.dir, uri);
-    await fs.writeFile(filename, JSON.stringify(config), 'utf8');
+    fs.writeFileSync(filename, JSON.stringify(config), 'utf8');
   }
 }
 
