@@ -28,7 +28,7 @@ perform_action() {
         "$sdkDir"/rust/build.sh "$PWD"
         
         so_path="$targetDir/$profile"
-        so_name="solana_bpf_helloworld"
+        so_name="soprox"
         if [ -f "$so_path/${so_name}.so" ]; then
             cp "$so_path/${so_name}.so" "$so_path/${so_name}_debug.so"
             "$sdkDir"/dependencies/llvm-native/bin/llvm-objcopy --strip-all "$so_path/${so_name}.so" "$so_path/$so_name.so"
@@ -62,7 +62,7 @@ perform_action() {
             "$0" build
 
             so_path="$targetDir/$profile"
-            so_name="solana_bpf_helloworld"
+            so_name="soprox"
             so="$so_path/${so_name}_debug.so"
             dump="$so_path/${so_name}-dump"
 
