@@ -13,17 +13,15 @@ const fs = require('fs');
 const BufferLayout = require('buffer-layout');
 
 const { url, urlTls } = require('../../url');
-const { Store } = require('./util/store');
-const { newAccountWithLamports } = require('./util/new-account-with-lamports');
-const { sendAndConfirmTransaction } = require('./util/send-and-confirm-transaction');
-
+const { Store } = require('./helpers/store');
+const { newAccountWithLamports, sendAndConfirmTransaction } = require('./helpers/util');
 
 let connection;
 let payerAccount;
 let programId;
 let greetedPubkey;
 
-const pathToProgram = 'dist/program/helloworld.so';
+const pathToProgram = 'dist/program/main.so';
 
 /**
  * Layout of the greeted account data
@@ -104,15 +102,15 @@ async function loadProgram() {
   const lamports = await connection.getMinimumBalanceForRentExemption(
     greetedAccountDataLayout.span,
   );
-  const transaction = SystemProgram.createAccount({
+  let transaction = new Transaction();
+  transaction.add(SystemProgram.createAccount({
     fromPubkey: payerAccount.publicKey,
     newAccountPubkey: greetedPubkey,
     lamports,
     space,
     programId,
-  });
+  }));
   await sendAndConfirmTransaction(
-    'createAccount',
     connection,
     transaction,
     payerAccount,
@@ -120,7 +118,7 @@ async function loadProgram() {
   );
 
   // Save this info for next time
-  await store.save('config.json', {
+  store.save('config.json', {
     url: urlTls,
     programId: programId.toBase58(),
     greetedPubkey: greetedPubkey.toBase58(),
@@ -138,7 +136,6 @@ async function sayHello() {
     data: Buffer.alloc(0), // All instructions are hellos
   });
   await sendAndConfirmTransaction(
-    'sayHello',
     connection,
     new Transaction().add(instruction),
     payerAccount,

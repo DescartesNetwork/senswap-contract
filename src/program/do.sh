@@ -26,16 +26,14 @@ perform_action() {
     case "$1" in
     build)
         "$sdkDir"/rust/build.sh "$PWD"
-        
         so_path="$targetDir/$profile"
         so_name="soprox"
         if [ -f "$so_path/${so_name}.so" ]; then
             cp "$so_path/${so_name}.so" "$so_path/${so_name}_debug.so"
             "$sdkDir"/dependencies/llvm-native/bin/llvm-objcopy --strip-all "$so_path/${so_name}.so" "$so_path/$so_name.so"
         fi
-
         mkdir -p ../../dist/program
-        cp "$so_path/${so_name}.so" ../../dist/program/helloworld.so
+        cp "$so_path/${so_name}.so" ../../dist/program/main.so
         ;;
     clean)
         "$sdkDir"/rust/clean.sh "$PWD"
@@ -43,11 +41,11 @@ perform_action() {
     test)
         echo "test"
         shift
-        cargo +nightly test $@
+        cargo test $@
         ;;
     clippy)
         echo "clippy"
-        cargo +nightly clippy
+        cargo clippy
         ;;
     fmt)
         echo "formatting"

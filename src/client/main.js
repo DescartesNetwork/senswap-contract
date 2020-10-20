@@ -1,4 +1,4 @@
-const { establishConnection, establishPayer, loadProgram, sayHello, reportHellos } = require('./hello_world');
+const { establishConnection, establishPayer, loadProgram, sayHello, reportHellos } = require('./app');
 
 async function main() {
   console.log("Let's say hello to a Solana account...");

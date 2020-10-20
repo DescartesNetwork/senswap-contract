@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const mkdirp = require('mkdirp-promise');
 
 class Store {
   dir = path.join(__dirname, '../../../store');
@@ -16,11 +15,15 @@ class Store {
     }
   }
 
-  async save(uri, config) {
-    await mkdirp(this.dir);
+  save(uri, config) {
+    try {
+      fs.mkdirSync(this.dir);
+    } catch (er) {
+      console.warn(er.message);
+    }
     const filename = path.join(this.dir, uri);
     fs.writeFileSync(filename, JSON.stringify(config), 'utf8');
   }
 }
 
-module.exports = { Store };
+module.exports = { Store }

@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Senswap project",
   "main": "index.js",
-  "testnetDefaultChannel": "v1.3.9",
+  "testnetDefaultChannel": "v1.3.12",
   "scripts": {
-    "start": "nodemon src/client/main.js",
+    "start": "nodemon -e \"js\" src/client/main.js",
     "bpf-sdk:update": "solana-bpf-sdk-install node_modules/@solana/web3.js && npm run clean",
     "clean:store": "rm -rf store",
     "build": "./src/program/do.sh build && npm run clean:store",
@@ -32,12 +32,13 @@
   },
   "homepage": "https://github.com/DescartesNetwork/senswap-contract#readme",
   "dependencies": {
-    "@solana/web3.js": "^0.73.0",
+    "@solana/web3.js": "^0.78.4",
     "buffer-layout": "^1.2.0",
     "dotenv": "^8.2.0",
     "fs": "0.0.1-security",
-    "json-to-pretty-yaml": "^1.2.2",
-    "mkdirp-promise": "^5.0.1",
     "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.5"
   }
 }
