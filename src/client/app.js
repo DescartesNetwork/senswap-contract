@@ -130,10 +130,13 @@ async function loadProgram() {
  */
 async function sayHello() {
   console.log('Saying hello to', greetedPubkey.toBase58());
+  const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
+  const data = Buffer.alloc(dataLayout.span);
+  dataLayout.encode({ instruction: 0 }, data,);
   const instruction = new TransactionInstruction({
     keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
     programId,
-    data: Buffer.alloc(0), // All instructions are hellos
+    data
   });
   await sendAndConfirmTransaction(
     connection,

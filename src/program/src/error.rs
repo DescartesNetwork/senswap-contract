@@ -9,13 +9,16 @@ use solana_sdk::{
 };
 use thiserror::Error;
 
-/// Errors that may be returned by the App program.
+/// Re-exporting PrintProgramError as PrintAppError for convention
+pub use solana_sdk::program_error::PrintProgramError as PrintAppError;
+
+/// Errors that may be returned by the app program.
 #[derive(Clone, Debug, Eq, Error, DriveFromPrimitive, PartialEq)]
 pub enum AppError {
-  /// Incorrect program id
+  #[error("Invalid instruction")]
+  InvalidInstruction,
   #[error("Incorrect program id")]
   IncorrectProgramId,
-  /// Operation overflowed
   #[error("Operation overflowed")]
   Overflow,
 }
@@ -38,6 +41,7 @@ impl PrintProgramError for AppError {
     E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
   {
     match self {
+      AppError::InvalidInstruction => info!("Invalid instruction"),
       AppError::IncorrectProgramId => info!("Error: Incorrect program id"),
       AppError::Overflow => info!("Error: Operation overflowed"),
     }
