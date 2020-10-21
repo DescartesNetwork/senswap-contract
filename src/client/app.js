@@ -11,6 +11,7 @@ const {
 } = require('@solana/web3.js');
 const fs = require('fs');
 const BufferLayout = require('buffer-layout');
+const BN = require('bn.js');
 
 const { url, urlTls } = require('../../url');
 const { Store } = require('./helpers/store');
@@ -128,21 +129,33 @@ async function loadProgram() {
 /**
  * Say hello
  */
-async function sayHello() {
+class u32 extends BN {
+  toBuffer() {
+    const a = super.toArray().reverse();
+    const b = Buffer.from(a);
+    if (b.length > 4) throw new Error('u64 too large');
+    if (b.length === 4) return b;
+    const zeroPad = Buffer.alloc(4);
+    b.copy(zeroPad);
+    return zeroPad;
+  }
+}
+async function sayHello(amount) {
   console.log('Saying hello to', greetedPubkey.toBase58());
-  const dataLayout = BufferLayout.struct([BufferLayout.u8('instruction')]);
+  const dataLayout = BufferLayout.struct([
+    BufferLayout.u8('instruction'),
+    BufferLayout.blob(4, 'amount'),
+  ]);
   const data = Buffer.alloc(dataLayout.span);
-  dataLayout.encode({ instruction: 0 }, data);
+  dataLayout.encode({ instruction: 0, amount: new u32(amount).toBuffer() }, data);
   const instruction = new TransactionInstruction({
     keys: [{ pubkey: greetedPubkey, isSigner: false, isWritable: true }],
     programId,
     data
   });
-  await sendAndConfirmTransaction(
-    connection,
-    new Transaction().add(instruction),
-    payerAccount,
-  );
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  await sendAndConfirmTransaction(connection, transaction, payerAccount);
 }
 
 /**

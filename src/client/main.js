@@ -5,7 +5,7 @@ async function main() {
   await establishConnection(); // Establish connection to the cluster
   await establishPayer(); // Determine who pays for the fees
   await loadProgram(); // Load the program if not already loaded
-  await sayHello(); // Say hello to an account
+  await sayHello(2); // Say hello to an account
   await reportHellos(); // Find out how many times that account has been greeted
   console.log('Success');
 }

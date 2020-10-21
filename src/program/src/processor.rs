@@ -22,7 +22,7 @@ impl Processor {
     info!("Hello Rust program entrypoint");
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
-      AppInstruction::SayHello => {
+      AppInstruction::SayHello { amount } => {
         info!("Calling SayHello function");
         let accounts_iter = &mut accounts.iter();
         let account = next_account_info(accounts_iter)?;
@@ -34,7 +34,7 @@ impl Processor {
         }
         let mut data = account.try_borrow_mut_data()?;
         let mut num_greets = LittleEndian::read_u32(&data);
-        num_greets += 1;
+        num_greets += amount;
         LittleEndian::write_u32(&mut data[0..], num_greets);
         Ok(())
       }
