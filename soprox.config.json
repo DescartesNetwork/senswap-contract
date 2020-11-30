@@ -1,0 +1,13 @@
+{
+  "network": {
+    "devnet": "http://localhost:8899",
+    "testnet": "",
+    "mainnet": ""
+  },
+  "payers": [
+    {
+      "address": "",
+      "secretKey": ""
+    }
+  ]
+}

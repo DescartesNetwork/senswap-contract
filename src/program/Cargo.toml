@@ -1,24 +1,25 @@
 [package]
+authors = ["Tu Phan <tuphan@descartes.network>"]
+description = "A Rust-based Solana program boilerplate"
+edition = "2018"
+license = "MIT"
 name = "soprox"
 version = "0.0.1"
-description = "A Rust-based Solana program boilerplate"
-authors = ["Tu Phan <tuphan@descartes.network>"]
-license = "MIT"
-edition = "2018"
 
 [features]
-no-entrypoint = []
-skip-no-mangle = ["solana-sdk/skip-no-mangle"]
-program = ["solana-sdk/program"]
 default = ["solana-sdk/default"]
+no-entrypoint = []
+program = ["solana-sdk/program"]
+skip-no-mangle = ["solana-sdk/skip-no-mangle"]
 
 [dependencies]
+arrayref = "0.3.6"
 byteorder = "1.3"
-solana-sdk = { version = "1.3.12", default-features = false, optional = true }
-thiserror = "1.0"
 num-derive = "0.3"
 num-traits = "0.2"
+solana-sdk = {version = "1.3.12", default-features = false, optional = true}
+thiserror = "1.0"
 
 [lib]
-name = "soprox"
 crate-type = ["cdylib", "lib"]
+name = "soprox"

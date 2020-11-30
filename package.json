@@ -1,45 +1,44 @@
 {
-  "name": "senswap-contract",
-  "version": "1.0.0",
-  "description": "Senswap project",
+  "name": "hello",
+  "version": "0.0.1",
+  "description": "Created by Soprox",
   "main": "index.js",
   "testnetDefaultChannel": "v1.3.12",
   "scripts": {
-    "start": "nodemon -e \"js\" src/client/main.js",
-    "bpf-sdk:update": "solana-bpf-sdk-install node_modules/@solana/web3.js && npm run clean",
-    "clean:store": "rm -rf store",
-    "build": "./src/program/do.sh build && npm run clean:store",
+    "start": "node src/client/index.js",
+    "build": "./src/program/do.sh build",
+    "deploy": "node ./lib/deployer.js",
     "clean": "./src/program/do.sh clean && rm -rf ./dist && npm run clean:store",
+    "clean:store": "rm -rf store",
     "test": "./src/program/do.sh test",
     "cluster:localnet": "npm run clean:store && rm -f .env",
     "cluster:devnet": "npm run clean:store && cp cluster-devnet.env .env",
     "cluster:testnet": "npm run clean:store && cp cluster-testnet.env .env",
     "cluster:mainnet-beta": "npm run clean:store && cp cluster-mainnet-beta.env .env",
     "localnet:update": "solana-localnet update",
-    "localnet:up": "set -x; solana-localnet down; set -e; solana-localnet up",
+    "localnet:up": "npm run clean:store && set -x; solana-localnet down; set -e; solana-localnet up",
     "localnet:down": "solana-localnet down",
     "localnet:logs": "solana-localnet logs -f",
-    "postinstall": "npm run bpf-sdk:update && cargo update --manifest-path=src/program/Cargo.toml"
+    "postinstall": "npm run bpf-sdk:update && cargo update --manifest-path=src/program/Cargo.toml",
+    "bpf-sdk:update": "solana-bpf-sdk-install node_modules/@solana/web3.js && npm run clean"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DescartesNetwork/senswap-contract.git"
+    "url": "git+https://github.com/DescartesNetwork/soprox.git"
   },
   "author": "Tu Phan",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/DescartesNetwork/senswap-contract/issues"
+    "url": "https://github.com/DescartesNetwork/soprox/issues"
   },
-  "homepage": "https://github.com/DescartesNetwork/senswap-contract#readme",
+  "homepage": "https://github.com/DescartesNetwork/soprox#readme",
   "dependencies": {
     "@solana/web3.js": "^0.78.4",
     "bn.js": "^5.1.3",
-    "buffer-layout": "^1.2.0",
     "dotenv": "^8.2.0",
     "fs": "0.0.1-security",
-    "path": "^0.12.7"
+    "path": "^0.12.7",
+    "soprox-abi": "0.0.3"
   },
-  "devDependencies": {
-    "nodemon": "^2.0.5"
-  }
+  "devDependencies": {}
 }

@@ -7,3 +7,6 @@
 target
 dist
 store
+
+# Personale
+.DS_Store

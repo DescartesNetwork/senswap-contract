@@ -1,0 +1,15 @@
+[
+  {
+    "key": "dummy",
+    "schema": [
+      {
+        "key": "numGreets",
+        "type": "u32"
+      },
+      {
+        "key": "toggleState",
+        "type": "bool"
+      }
+    ]
+  }
+]

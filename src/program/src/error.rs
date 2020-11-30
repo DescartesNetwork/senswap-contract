@@ -41,7 +41,7 @@ impl PrintProgramError for AppError {
     E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
   {
     match self {
-      AppError::InvalidInstruction => info!("Invalid instruction"),
+      AppError::InvalidInstruction => info!("Error: Invalid instruction"),
       AppError::IncorrectProgramId => info!("Error: Incorrect program id"),
       AppError::Overflow => info!("Error: Operation overflowed"),
     }
