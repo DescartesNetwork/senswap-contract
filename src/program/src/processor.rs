@@ -2,7 +2,7 @@
 
 use crate::error::AppError;
 use crate::instruction::AppInstruction;
-use crate::schema::dummy::Dummy;
+use crate::schema::{pool::Pool, token::Token};
 use solana_sdk::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -21,17 +21,29 @@ impl Processor {
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
-      AppInstruction::SayHello { amount, toggle } => {
-        info!("Calling SayHello function");
+      AppInstruction::PoolConstructor {} => {
+        info!("Calling PoolConstructor function");
         let accounts_iter = &mut accounts.iter();
-        let account = next_account_info(accounts_iter)?;
-        if account.owner != program_id {
+        let pool_acc = next_account_info(accounts_iter)?;
+        let token_acc = next_account_info(accounts_iter)?;
+        if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        let mut data = Dummy::unpack(&account.data.borrow())?;
-        data.amount = data.amount.checked_add(amount).ok_or(AppError::Overflow)?;
-        data.toggle = toggle;
-        Dummy::pack(data, &mut account.data.borrow_mut())?;
+        if !pool_acc.is_signer {
+          return Err(AppError::InvalidOwner.into());
+        }
+        let _ = Token::unpack(&token_acc.data.borrow())?;
+        let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+        if pool_data.is_initialized() {
+          return Err(AppError::ConstructorOnce.into());
+        }
+        pool_data.token = *token.key;
+        pool_data.reserve = 0;
+        pool_data.sen = 0;
+        pool_data.fee_numerator = 250;
+        pool_data.fee_denominator = 100000;
+        token_data.initialized = true;
+        Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
         Ok(())
       }
     }
