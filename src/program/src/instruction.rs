@@ -4,7 +4,6 @@ use crate::error::AppError;
 use solana_sdk::program_error::ProgramError;
 use std::convert::TryInto;
 
-#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
   SayHello { amount: u32, toggle: bool },

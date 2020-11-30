@@ -10,7 +10,6 @@ use solana_sdk::{
   program_pack::Pack,
   pubkey::Pubkey,
 };
-use std::mem;
 
 pub struct Processor {}
 
@@ -29,11 +28,8 @@ impl Processor {
         if account.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if account.try_data_len()? < mem::size_of::<u32>() {
-          return Err(AppError::Overflow.into());
-        }
         let mut data = Dummy::unpack(&account.data.borrow())?;
-        data.amount += amount;
+        data.amount = data.amount.checked_add(amount).ok_or(AppError::Overflow)?;
         data.toggle = toggle;
         Dummy::pack(data, &mut account.data.borrow_mut())?;
         Ok(())
