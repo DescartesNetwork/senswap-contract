@@ -1,13 +1,52 @@
 [
   {
-    "key": "dummy",
+    "key": "pool",
+    "owner": null,
     "schema": [
       {
-        "key": "numGreets",
-        "type": "u32"
+        "key": "token",
+        "type": "pub"
       },
       {
-        "key": "toggleState",
+        "key": "reserve",
+        "type": "u64"
+      },
+      {
+        "key": "sen",
+        "type": "u64"
+      },
+      {
+        "key": "fee_numerator",
+        "type": "u64"
+      },
+      {
+        "key": "fee_denominator",
+        "type": "u64"
+      },
+      {
+        "key": "initialized",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "key": "treasury",
+    "owner": "2MsLqshDGm9LtVU98hCny5XAXG77RXsXueKXJxKLf9RM",
+    "schema": [
+      {
+        "key": "owner",
+        "type": "pub"
+      },
+      {
+        "key": "token",
+        "type": "pub"
+      },
+      {
+        "key": "amount",
+        "type": "u64"
+      },
+      {
+        "key": "initialized",
         "type": "bool"
       }
     ]

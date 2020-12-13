@@ -6,7 +6,7 @@ use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
-  PoolConstructor {},
+  PoolConstructor { reserve: u64, sen: u64 },
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -14,7 +14,19 @@ impl AppInstruction {
       .split_first()
       .ok_or(AppError::InvalidInstruction)?;
     Ok(match tag {
-      0 => Self::PoolConstructor {},
+      0 => {
+        let reserve = rest
+          .get(..8)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        let sen = rest
+          .get(8..16)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::PoolConstructor { reserve, sen }
+      }
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
