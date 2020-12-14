@@ -33,6 +33,7 @@ impl Processor {
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
         let sen_acc = next_account_info(accounts_iter)?;
+        let src_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
         let token_program_id = next_account_info(accounts_iter)?;
         if pool_acc.owner != program_id {
@@ -51,14 +52,15 @@ impl Processor {
           return Err(AppError::ConstructorOnce.into());
         }
 
-        let ix = ISRC20::account_constructor(
+        // Account Constructor
+        let ix_account_constructor = ISRC20::account_constructor(
           *token_program_id.key,
           *pool_acc.key,
           *token_acc.key,
           *treasury_acc.key,
         )?;
         invoke(
-          &ix,
+          &ix_account_constructor,
           &[
             token_program_id.clone(),
             pool_acc.clone(),
@@ -67,6 +69,27 @@ impl Processor {
           ],
         )?;
 
+        // Deposit token
+        let ix_transfer = ISRC20::transfer(
+          *token_program_id.key,
+          *caller.key,
+          *token_acc.key,
+          *src_acc.key,
+          *treasury_acc.key,
+          reserve,
+        )?;
+        invoke(
+          &ix_transfer,
+          &[
+            token_program_id.clone(),
+            caller.clone(),
+            token_acc.clone(),
+            src_acc.clone(),
+            treasury_acc.clone(),
+          ],
+        )?;
+
+        // Add pool data
         pool_data.token = *token_acc.key;
         pool_data.reserve = reserve;
         pool_data.sen = sen;
@@ -74,7 +97,7 @@ impl Processor {
         pool_data.fee_denominator = FEE_DENOMINATOR;
         pool_data.initialized = true;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-
+        // Add sen data
         sen_data.owner = *caller.key;
         sen_data.pool = *pool_acc.key;
         sen_data.sen = sen;

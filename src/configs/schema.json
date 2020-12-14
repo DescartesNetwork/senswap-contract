@@ -50,5 +50,27 @@
         "type": "bool"
       }
     ]
+  },
+  {
+    "key": "sen",
+    "owner": null,
+    "schema": [
+      {
+        "key": "owner",
+        "type": "pub"
+      },
+      {
+        "key": "pool",
+        "type": "pub"
+      },
+      {
+        "key": "sen",
+        "type": "u64"
+      },
+      {
+        "key": "initialized",
+        "type": "bool"
+      }
+    ]
   }
 ]

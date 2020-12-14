@@ -9,6 +9,7 @@ const store = require('../../lib/store');
 const init = async () => {
   const connection = await establishConnection();
   const payer = await loadPayer(connection);
+  const src = new PublicKey('HLnSpgAH9CAeAKbV774t7HjVcTHrCCpB3vAPnFfMUDbH');
   const token = new PublicKey('5Tsf9PSMWrqPcnQF4QeoTXyLr927Tt5PprENh8ykGJ7Q');
   const tokenProgramId = new PublicKey('2MsLqshDGm9LtVU98hCny5XAXG77RXsXueKXJxKLf9RM');
   const program = store.load('program');
@@ -17,7 +18,7 @@ const init = async () => {
     register.publicKey = new PublicKey(register.address);
     return register;
   });
-  return { connection, payer, token, tokenProgramId, programId, registers }
+  return { connection, payer, src, token, tokenProgramId, programId, registers }
 }
 
 /**
