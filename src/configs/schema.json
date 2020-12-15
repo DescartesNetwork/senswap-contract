@@ -8,6 +8,10 @@
         "type": "pub"
       },
       {
+        "key": "treasury",
+        "type": "pub"
+      },
+      {
         "key": "reserve",
         "type": "u64"
       },

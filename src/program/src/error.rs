@@ -29,6 +29,8 @@ pub enum AppError {
   NotInitialized,
   #[error("Operation overflowed")]
   Overflow,
+  #[error("Pool unmatched")]
+  UnmatchedPool,
 }
 
 impl From<AppError> for ProgramError {
@@ -56,6 +58,7 @@ impl PrintProgramError for AppError {
       AppError::ConstructorOnce => info!("Error: Already constructed"),
       AppError::NotInitialized => info!("Error: Not yet initialized"),
       AppError::Overflow => info!("Error: Operation overflowed"),
+      AppError::UnmatchedPool => info!("Error: Pool unmatched"),
     }
   }
 }
