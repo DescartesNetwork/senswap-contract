@@ -9,9 +9,9 @@ const store = require('../../lib/store');
 const init = async () => {
   const connection = await establishConnection();
   const payer = await loadPayer(connection);
-  const src = new PublicKey('HLnSpgAH9CAeAKbV774t7HjVcTHrCCpB3vAPnFfMUDbH');
-  const token = new PublicKey('5Tsf9PSMWrqPcnQF4QeoTXyLr927Tt5PprENh8ykGJ7Q');
-  const tokenProgramId = new PublicKey('2MsLqshDGm9LtVU98hCny5XAXG77RXsXueKXJxKLf9RM');
+  const src = new PublicKey('E1dewiwqs7zqPPzoctiWgrR7ndoyY64yc2BwU6eYny3Q');
+  const token = new PublicKey('EbU12HD74t19Jhe8JfTBPiY3ikcEMNGRv7bNbsPkdhXZ');
+  const tokenProgramId = new PublicKey('6D5sUPSzXsLPtDxBpi8fngu83FPk54CvpinX3zzZovTr');
   const program = store.load('program');
   const programId = new PublicKey(program.address);
   const registers = store.load('abi').schema.map(register => {

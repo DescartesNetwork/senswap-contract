@@ -8,7 +8,7 @@ use std::convert::TryInto;
 pub enum AppInstruction {
   PoolConstructor { reserve: u64, sen: u64 },
   AddLiquidity { reserve: u64 },
-  WithdrawLiquidity { sen: u64 },
+  RemoveLiquidity { sen: u64 },
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -43,7 +43,7 @@ impl AppInstruction {
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::WithdrawLiquidity { sen }
+        Self::RemoveLiquidity { sen }
       }
       _ => return Err(AppError::InvalidInstruction.into()),
     })

@@ -31,6 +31,8 @@ pub enum AppError {
   Overflow,
   #[error("Pool unmatched")]
   UnmatchedPool,
+  #[error("Zero value")]
+  ZeroValue,
 }
 
 impl From<AppError> for ProgramError {
@@ -59,6 +61,7 @@ impl PrintProgramError for AppError {
       AppError::NotInitialized => info!("Error: Not yet initialized"),
       AppError::Overflow => info!("Error: Operation overflowed"),
       AppError::UnmatchedPool => info!("Error: Pool unmatched"),
+      AppError::ZeroValue => info!("Error: Zero value"),
     }
   }
 }

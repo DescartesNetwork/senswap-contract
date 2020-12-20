@@ -8,7 +8,7 @@ use solana_sdk::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
   info,
-  program::invoke,
+  program::{invoke, invoke_signed},
   program_pack::{IsInitialized, Pack},
   pubkey::Pubkey,
 };
@@ -35,7 +35,8 @@ impl Processor {
         let sen_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
-        let token_program_id = next_account_info(accounts_iter)?;
+        let token_owner_acc = next_account_info(accounts_iter)?;
+        let token_program = next_account_info(accounts_iter)?;
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
@@ -43,6 +44,8 @@ impl Processor {
         {
           return Err(AppError::InvalidOwner.into());
         }
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack_unchecked(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
@@ -50,27 +53,34 @@ impl Processor {
         {
           return Err(AppError::ConstructorOnce.into());
         }
+        if reserve == 0 || sen == 0 {
+          return Err(AppError::ZeroValue.into());
+        }
+        if token_owner_key != *token_owner_acc.key {
+          return Err(AppError::UnmatchedPool.into());
+        }
 
         // Account Constructor
         let ix_account_constructor = ISRC20::account_constructor(
-          *token_program_id.key,
-          *pool_acc.key,
+          *token_program.key,
+          token_owner_key,
           *token_acc.key,
           *treasury_acc.key,
         )?;
-        invoke(
+        invoke_signed(
           &ix_account_constructor,
           &[
-            token_program_id.clone(),
-            pool_acc.clone(),
+            token_program.clone(),
+            token_owner_acc.clone(),
             token_acc.clone(),
             treasury_acc.clone(),
           ],
+          &[&seed],
         )?;
 
         // Deposit token
         let ix_transfer = ISRC20::transfer(
-          *token_program_id.key,
+          *token_program.key,
           *caller.key,
           *token_acc.key,
           *src_acc.key,
@@ -80,7 +90,7 @@ impl Processor {
         invoke(
           &ix_transfer,
           &[
-            token_program_id.clone(),
+            token_program.clone(),
             caller.clone(),
             token_acc.clone(),
             src_acc.clone(),
@@ -116,26 +126,36 @@ impl Processor {
         let sen_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
-        let token_program_id = next_account_info(accounts_iter)?;
+        let token_owner_acc = next_account_info(accounts_iter)?;
+        let token_program = next_account_info(accounts_iter)?;
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
         if !caller.is_signer {
           return Err(AppError::InvalidOwner.into());
         }
+
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
         if pool_data.token != *token_acc.key || treasury_data.token != *token_acc.key {
           return Err(AppError::IncorrectTokenId.into());
         }
-        if pool_data.treasury != *treasury_acc.key || treasury_data.owner != *pool_acc.key {
+        if pool_data.treasury != *treasury_acc.key
+          || token_owner_key != *token_owner_acc.key
+          || treasury_data.owner != *token_owner_acc.key
+        {
           return Err(AppError::UnmatchedPool.into());
+        }
+        if reserve == 0 {
+          return Err(AppError::ZeroValue.into());
         }
 
         // Deposit token
         let ix_transfer = ISRC20::transfer(
-          *token_program_id.key,
+          *token_program.key,
           *caller.key,
           *token_acc.key,
           *src_acc.key,
@@ -145,7 +165,7 @@ impl Processor {
         invoke(
           &ix_transfer,
           &[
-            token_program_id.clone(),
+            token_program.clone(),
             caller.clone(),
             token_acc.clone(),
             src_acc.clone(),
@@ -189,8 +209,8 @@ impl Processor {
         Ok(())
       }
 
-      AppInstruction::WithdrawLiquidity { sen } => {
-        info!("Calling WithdrawLiquidity function");
+      AppInstruction::RemoveLiquidity { sen } => {
+        info!("Calling RemoveLiquidity function");
         let accounts_iter = &mut accounts.iter();
         let caller = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
@@ -198,13 +218,16 @@ impl Processor {
         let sen_acc = next_account_info(accounts_iter)?;
         let dst_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
-        let token_program_id = next_account_info(accounts_iter)?;
+        let token_owner_acc = next_account_info(accounts_iter)?;
+        let token_program = next_account_info(accounts_iter)?;
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
         if !caller.is_signer {
           return Err(AppError::InvalidOwner.into());
         }
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack(&sen_acc.data.borrow())?;
@@ -212,10 +235,14 @@ impl Processor {
           return Err(AppError::IncorrectTokenId.into());
         }
         if pool_data.treasury != *treasury_acc.key
-          || treasury_data.owner != *pool_acc.key
+          || token_owner_key != *token_owner_acc.key
+          || treasury_data.owner != *token_owner_acc.key
           || sen_data.pool != *pool_acc.key
         {
           return Err(AppError::UnmatchedPool.into());
+        }
+        if sen == 0 {
+          return Err(AppError::ZeroValue.into());
         }
 
         // Caculated corresponding paid-back reserve
@@ -228,9 +255,9 @@ impl Processor {
         // Update pool
         pool_data.reserve = pool_data
           .reserve
-          .checked_add(reserve)
+          .checked_sub(reserve)
           .ok_or(AppError::Overflow)?;
-        pool_data.sen = pool_data.sen.checked_add(sen).ok_or(AppError::Overflow)?;
+        pool_data.sen = pool_data.sen.checked_sub(sen).ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
         // Update sen data
         sen_data.sen = sen_data.sen.checked_sub(sen).ok_or(AppError::Overflow)?;
@@ -238,22 +265,23 @@ impl Processor {
 
         // Withdraw token
         let ix_transfer = ISRC20::transfer(
-          *token_program_id.key,
-          *pool_acc.key,
+          *token_program.key,
+          *token_owner_acc.key,
           *token_acc.key,
           *treasury_acc.key,
           *dst_acc.key,
           reserve,
         )?;
-        invoke(
+        invoke_signed(
           &ix_transfer,
           &[
-            token_program_id.clone(),
-            pool_acc.clone(),
+            token_program.clone(),
+            token_owner_acc.clone(),
             token_acc.clone(),
             treasury_acc.clone(),
             dst_acc.clone(),
           ],
+          &[&seed],
         )?;
 
         Ok(())

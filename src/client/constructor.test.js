@@ -1,4 +1,7 @@
-const { sendAndConfirmTransaction, TransactionInstruction, Transaction, Account } = require('@solana/web3.js');
+const {
+  sendAndConfirmTransaction, TransactionInstruction, Transaction,
+  Account, PublicKey,
+} = require('@solana/web3.js');
 const soproxABI = require('soprox-abi');
 const { init, info } = require('./helpers');
 
@@ -8,6 +11,9 @@ const { init, info } = require('./helpers');
 const poolConstructor = async (pool, treasury, sen, srcPublicKey, tokenPublicKey, tokenProgramId, programId, payer, connection) => {
   console.log('Pool constructor at', pool.publicKey.toBase58());
   console.log('Treasury constructor at', treasury.publicKey.toBase58());
+  const seeds = [pool.publicKey.toBuffer()];
+  const tokenOwnerPublicKey = await PublicKey.createProgramAddress(seeds, programId);
+  console.log('Token Owner constructor at', tokenOwnerPublicKey.toBase58());
   const schema = [
     { key: 'code', type: 'u8' },
     { key: 'reserve', type: 'u64' },
@@ -24,6 +30,7 @@ const poolConstructor = async (pool, treasury, sen, srcPublicKey, tokenPublicKey
       { pubkey: sen.publicKey, isSigner: true, isWritable: true },
       { pubkey: srcPublicKey, isSigner: false, isWritable: true },
       { pubkey: tokenPublicKey, isSigner: false, isWritable: false },
+      { pubkey: tokenOwnerPublicKey, isSigner: false, isWritable: false },
       { pubkey: tokenProgramId, isSigner: false, isWritable: false },
     ],
     programId,
