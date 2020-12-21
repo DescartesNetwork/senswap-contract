@@ -40,12 +40,16 @@ impl Processor {
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if !caller.is_signer || !pool_acc.is_signer || !treasury_acc.is_signer || !sen_acc.is_signer
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !caller.is_signer
+          || !pool_acc.is_signer
+          || !treasury_acc.is_signer
+          || !sen_acc.is_signer
+          || token_owner_key != *token_owner_acc.key
         {
           return Err(AppError::InvalidOwner.into());
         }
-        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
-        let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack_unchecked(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
@@ -55,9 +59,6 @@ impl Processor {
         }
         if reserve == 0 || sen == 0 {
           return Err(AppError::ZeroValue.into());
-        }
-        if token_owner_key != *token_owner_acc.key {
-          return Err(AppError::UnmatchedPool.into());
         }
 
         // Account Constructor
@@ -131,22 +132,18 @@ impl Processor {
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if !caller.is_signer {
-          return Err(AppError::InvalidOwner.into());
-        }
-
         let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
         let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !caller.is_signer || token_owner_key != *token_owner_acc.key {
+          return Err(AppError::InvalidOwner.into());
+        }
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
         if pool_data.token != *token_acc.key || treasury_data.token != *token_acc.key {
           return Err(AppError::IncorrectTokenId.into());
         }
-        if pool_data.treasury != *treasury_acc.key
-          || token_owner_key != *token_owner_acc.key
-          || treasury_data.owner != *token_owner_acc.key
-        {
+        if pool_data.treasury != *treasury_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
         if reserve == 0 {
@@ -223,22 +220,18 @@ impl Processor {
         if pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if !caller.is_signer {
-          return Err(AppError::InvalidOwner.into());
-        }
         let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
         let token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !caller.is_signer || token_owner_key != *token_owner_acc.key {
+          return Err(AppError::InvalidOwner.into());
+        }
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
         let mut sen_data = Sen::unpack(&sen_acc.data.borrow())?;
         if pool_data.token != *token_acc.key || treasury_data.token != *token_acc.key {
           return Err(AppError::IncorrectTokenId.into());
         }
-        if pool_data.treasury != *treasury_acc.key
-          || token_owner_key != *token_owner_acc.key
-          || treasury_data.owner != *token_owner_acc.key
-          || sen_data.pool != *pool_acc.key
-        {
+        if pool_data.treasury != *treasury_acc.key || sen_data.pool != *pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
         if sen == 0 {
@@ -279,6 +272,111 @@ impl Processor {
             token_owner_acc.clone(),
             token_acc.clone(),
             treasury_acc.clone(),
+            dst_acc.clone(),
+          ],
+          &[&seed],
+        )?;
+
+        Ok(())
+      }
+
+      AppInstruction::Swap { amount } => {
+        info!("Calling Swap function");
+        let accounts_iter = &mut accounts.iter();
+        let caller = next_account_info(accounts_iter)?;
+        let bid_pool_acc = next_account_info(accounts_iter)?;
+        let bid_treasury_acc = next_account_info(accounts_iter)?;
+        let src_acc = next_account_info(accounts_iter)?;
+        let bid_token_acc = next_account_info(accounts_iter)?;
+        let ask_pool_acc = next_account_info(accounts_iter)?;
+        let ask_treasury_acc = next_account_info(accounts_iter)?;
+        let dst_acc = next_account_info(accounts_iter)?;
+        let ask_token_acc = next_account_info(accounts_iter)?;
+        let ask_token_owner_acc = next_account_info(accounts_iter)?;
+        let token_program = next_account_info(accounts_iter)?;
+        if bid_pool_acc.owner != program_id || ask_pool_acc.owner != program_id {
+          return Err(AppError::IncorrectProgramId.into());
+        }
+        let seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
+        let ask_token_owner_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !caller.is_signer || ask_token_owner_key != *ask_token_owner_acc.key {
+          return Err(AppError::InvalidOwner.into());
+        }
+        let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
+        let bid_treasury_data = Account::unpack(&bid_treasury_acc.data.borrow())?;
+        let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
+        let ask_treasury_data = Account::unpack(&ask_treasury_acc.data.borrow())?;
+        if bid_pool_data.token != *bid_token_acc.key
+          || ask_pool_data.token != *ask_token_acc.key
+          || bid_treasury_data.token != *bid_token_acc.key
+          || ask_treasury_data.token != *ask_token_acc.key
+        {
+          return Err(AppError::IncorrectTokenId.into());
+        }
+        if bid_pool_data.treasury != *bid_treasury_acc.key
+          || ask_pool_data.treasury != *ask_treasury_acc.key
+        {
+          return Err(AppError::UnmatchedPool.into());
+        }
+        if amount == 0 {
+          return Err(AppError::ZeroValue.into());
+        }
+
+        // Caculated new state
+        let new_bid_reserve = bid_pool_data
+          .reserve
+          .checked_add(amount)
+          .ok_or(AppError::Overflow)?;
+        let new_ask_reserve = (bid_pool_data.reserve as u128)
+          .checked_mul(ask_pool_data.reserve as u128)
+          .ok_or(AppError::Overflow)?
+          .checked_div(new_bid_reserve as u128)
+          .ok_or(AppError::Overflow)? as u64;
+        let paid_amount = ask_pool_data
+          .reserve
+          .checked_sub(new_ask_reserve)
+          .ok_or(AppError::Overflow)?;
+
+        // Transfer bid
+        let ix_transfer = ISRC20::transfer(
+          *token_program.key,
+          *caller.key,
+          *bid_token_acc.key,
+          *src_acc.key,
+          *bid_treasury_acc.key,
+          amount,
+        )?;
+        invoke(
+          &ix_transfer,
+          &[
+            token_program.clone(),
+            caller.clone(),
+            bid_token_acc.clone(),
+            src_acc.clone(),
+            bid_treasury_acc.clone(),
+          ],
+        )?;
+        bid_pool_data.reserve = new_bid_reserve;
+        Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
+
+        // Transfer ask
+        ask_pool_data.reserve = new_ask_reserve;
+        Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
+        let ix_transfer = ISRC20::transfer(
+          *token_program.key,
+          *ask_token_owner_acc.key,
+          *ask_token_acc.key,
+          *ask_treasury_acc.key,
+          *dst_acc.key,
+          paid_amount,
+        )?;
+        invoke_signed(
+          &ix_transfer,
+          &[
+            token_program.clone(),
+            ask_token_owner_acc.clone(),
+            ask_token_acc.clone(),
+            ask_treasury_acc.clone(),
             dst_acc.clone(),
           ],
           &[&seed],

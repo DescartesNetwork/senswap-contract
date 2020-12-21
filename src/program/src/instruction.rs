@@ -9,6 +9,7 @@ pub enum AppInstruction {
   PoolConstructor { reserve: u64, sen: u64 },
   AddLiquidity { reserve: u64 },
   RemoveLiquidity { sen: u64 },
+  Swap { amount: u64 },
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -44,6 +45,14 @@ impl AppInstruction {
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { sen }
+      }
+      3 => {
+        let amount = rest
+          .get(..8)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::Swap { amount }
       }
       _ => return Err(AppError::InvalidInstruction.into()),
     })
