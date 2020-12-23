@@ -321,20 +321,35 @@ impl Processor {
         if amount == 0 {
           return Err(AppError::ZeroValue.into());
         }
+        if *bid_pool_acc.key == *ask_pool_acc.key {
+          return Ok(());
+        }
 
         // Caculated new state
         let new_bid_reserve = bid_pool_data
           .reserve
           .checked_add(amount)
           .ok_or(AppError::Overflow)?;
-        let new_ask_reserve = (bid_pool_data.reserve as u128)
+        let new_ask_reserve_no_fee = (bid_pool_data.reserve as u128)
           .checked_mul(ask_pool_data.reserve as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(new_bid_reserve as u128)
           .ok_or(AppError::Overflow)? as u64;
-        let paid_amount = ask_pool_data
+        let paid_amount_no_fee = ask_pool_data
           .reserve
-          .checked_sub(new_ask_reserve)
+          .checked_sub(new_ask_reserve_no_fee)
+          .ok_or(AppError::Overflow)?;
+        // Apply fee
+        let paid_amount_after_fee = (ask_pool_data.fee_denominator as u128)
+          .checked_sub(ask_pool_data.fee_numerator as u128)
+          .ok_or(AppError::Overflow)?
+          .checked_mul(paid_amount_no_fee as u128)
+          .ok_or(AppError::Overflow)?
+          .checked_div(ask_pool_data.fee_denominator as u128)
+          .ok_or(AppError::Overflow)? as u64;
+        let new_ask_reserve_after_fee = ask_pool_data
+          .reserve
+          .checked_sub(paid_amount_after_fee)
           .ok_or(AppError::Overflow)?;
 
         // Transfer bid
@@ -360,7 +375,7 @@ impl Processor {
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
         // Transfer ask
-        ask_pool_data.reserve = new_ask_reserve;
+        ask_pool_data.reserve = new_ask_reserve_after_fee;
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
         let ix_transfer = ISRC20::transfer(
           *token_program.key,
@@ -368,7 +383,7 @@ impl Processor {
           *ask_token_acc.key,
           *ask_treasury_acc.key,
           *dst_acc.key,
-          paid_amount,
+          paid_amount_after_fee,
         )?;
         invoke_signed(
           &ix_transfer,
