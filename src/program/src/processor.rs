@@ -170,8 +170,8 @@ impl Processor {
           ],
         )?;
 
-        // Calculate corresponding paid-back sen
-        let sen = (pool_data.sen as u128)
+        // Compute corresponding paid-back sen
+        let paid_sen = (pool_data.sen as u128)
           .checked_mul(reserve as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(pool_data.reserve as u128)
@@ -182,7 +182,10 @@ impl Processor {
           .reserve
           .checked_add(reserve)
           .ok_or(AppError::Overflow)?;
-        pool_data.sen = pool_data.sen.checked_add(sen).ok_or(AppError::Overflow)?;
+        pool_data.sen = pool_data
+          .sen
+          .checked_add(paid_sen)
+          .ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
         // Update or Add sen data
@@ -190,7 +193,10 @@ impl Processor {
           if sen_data.pool != *pool_acc.key {
             return Err(AppError::UnmatchedPool.into());
           }
-          sen_data.sen = sen_data.sen.checked_add(sen).ok_or(AppError::Overflow)?;
+          sen_data.sen = sen_data
+            .sen
+            .checked_add(paid_sen)
+            .ok_or(AppError::Overflow)?;
           Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
         } else {
           if !sen_acc.is_signer {
@@ -198,7 +204,7 @@ impl Processor {
           }
           sen_data.owner = *caller.key;
           sen_data.pool = *pool_acc.key;
-          sen_data.sen = sen;
+          sen_data.sen = paid_sen;
           sen_data.initialized = true;
           Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
         }
@@ -238,8 +244,8 @@ impl Processor {
           return Err(AppError::ZeroValue.into());
         }
 
-        // Caculated corresponding paid-back reserve
-        let reserve = (pool_data.reserve as u128)
+        // Compute corresponding paid-back reserve
+        let paid_reserve = (pool_data.reserve as u128)
           .checked_mul(sen as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(pool_data.sen as u128)
@@ -248,7 +254,7 @@ impl Processor {
         // Update pool
         pool_data.reserve = pool_data
           .reserve
-          .checked_sub(reserve)
+          .checked_sub(paid_reserve)
           .ok_or(AppError::Overflow)?;
         pool_data.sen = pool_data.sen.checked_sub(sen).ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
@@ -263,7 +269,7 @@ impl Processor {
           *token_acc.key,
           *treasury_acc.key,
           *dst_acc.key,
-          reserve,
+          paid_reserve,
         )?;
         invoke_signed(
           &ix_transfer,
@@ -325,7 +331,7 @@ impl Processor {
           return Ok(());
         }
 
-        // Caculated new state
+        // Compute new state
         let new_bid_reserve = bid_pool_data
           .reserve
           .checked_add(amount)
