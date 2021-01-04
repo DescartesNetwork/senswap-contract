@@ -1,7 +1,7 @@
 [
   {
     "key": "pool",
-    "owner": null,
+    "program": null,
     "schema": [
       {
         "key": "token",
@@ -35,7 +35,7 @@
   },
   {
     "key": "treasury",
-    "owner": "6D5sUPSzXsLPtDxBpi8fngu83FPk54CvpinX3zzZovTr",
+    "program": "D5cRXHjf8aMpdSgjTMf2tGuEJRSEF5azVGbYmKZeRFxc",
     "schema": [
       {
         "key": "owner",
@@ -57,7 +57,7 @@
   },
   {
     "key": "sen",
-    "owner": null,
+    "program": null,
     "schema": [
       {
         "key": "owner",

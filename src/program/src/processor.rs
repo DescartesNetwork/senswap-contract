@@ -1,10 +1,8 @@
-#![cfg(feature = "program")]
-
 use crate::error::AppError;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isrc20::ISRC20;
 use crate::schema::{account::Account, pool::Pool, sen::Sen};
-use solana_sdk::{
+use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
   info,

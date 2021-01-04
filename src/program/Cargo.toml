@@ -1,25 +1,21 @@
 [package]
 authors = ["Tu Phan <tuphan@descartes.network>"]
-description = "A Rust-based Solana program boilerplate"
+description = "Senswap - Powered by Descartes Network"
 edition = "2018"
 license = "MIT"
-name = "soprox"
+name = "main"
 version = "0.0.1"
 
 [features]
-default = ["solana-sdk/default"]
 no-entrypoint = []
-program = ["solana-sdk/program"]
-skip-no-mangle = ["solana-sdk/skip-no-mangle"]
 
 [dependencies]
 arrayref = "0.3.6"
 byteorder = "1.3"
 num-derive = "0.3"
 num-traits = "0.2"
-solana-sdk = {version = "1.3.12", default-features = false, optional = true}
+solana-program = "=1.4.8"
 thiserror = "1.0"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "soprox"

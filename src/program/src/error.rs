@@ -1,8 +1,6 @@
-#![cfg(feature = "program")]
-
-use num_derive::FromPrimitive as DriveFromPrimitive;
+use num_derive::FromPrimitive as DeriveFromPrimitive;
 use num_traits::FromPrimitive;
-use solana_sdk::{
+use solana_program::{
   decode_error::DecodeError,
   info,
   program_error::{PrintProgramError, ProgramError},
@@ -10,10 +8,10 @@ use solana_sdk::{
 use thiserror::Error;
 
 /// Re-exporting PrintProgramError as PrintAppError for convention
-pub use solana_sdk::program_error::PrintProgramError as PrintAppError;
+pub use solana_program::program_error::PrintProgramError as PrintAppError;
 
 /// Errors that may be returned by the app program.
-#[derive(Clone, Debug, Eq, Error, DriveFromPrimitive, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, DeriveFromPrimitive, PartialEq)]
 pub enum AppError {
   #[error("Invalid instruction")]
   InvalidInstruction,

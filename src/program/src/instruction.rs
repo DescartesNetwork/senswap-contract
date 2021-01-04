@@ -1,7 +1,5 @@
-#![cfg(feature = "program")]
-
 use crate::error::AppError;
-use solana_sdk::program_error::ProgramError;
+use solana_program::program_error::ProgramError;
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]

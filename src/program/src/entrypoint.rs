@@ -1,16 +1,14 @@
-#![cfg(feature = "program")]
 #![cfg(not(feature = "no-entrypoint"))]
 
 use crate::{
   error::{AppError, PrintAppError},
   processor::Processor,
 };
-use solana_sdk::{
-  account_info::AccountInfo, entrypoint_deprecated, entrypoint_deprecated::ProgramResult,
-  pubkey::Pubkey,
+use solana_program::{
+  account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, pubkey::Pubkey,
 };
 
-entrypoint_deprecated!(process_instruction);
+entrypoint!(process_instruction);
 
 fn process_instruction<'a>(
   program_id: &Pubkey,
