@@ -1,7 +1,7 @@
 use crate::error::AppError;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isrc20::ISRC20;
-use crate::schema::{account::Account, pool::Pool, sen::Sen};
+use crate::schema::{account::Account, pool::Pool, lpt::LPT};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -24,13 +24,13 @@ impl Processor {
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
-      AppInstruction::PoolConstructor { reserve, sen } => {
+      AppInstruction::PoolConstructor { reserve, lpt } => {
         info!("Calling PoolConstructor function");
         let accounts_iter = &mut accounts.iter();
         let caller = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
-        let sen_acc = next_account_info(accounts_iter)?;
+        let lpt_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
         let token_owner_acc = next_account_info(accounts_iter)?;
@@ -43,19 +43,19 @@ impl Processor {
         if !caller.is_signer
           || !pool_acc.is_signer
           || !treasury_acc.is_signer
-          || !sen_acc.is_signer
+          || !lpt_acc.is_signer
           || token_owner_key != *token_owner_acc.key
         {
           return Err(AppError::InvalidOwner.into());
         }
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack_unchecked(&treasury_acc.data.borrow())?;
-        let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
-        if pool_data.is_initialized() || treasury_data.is_initialized() || sen_data.is_initialized()
+        let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
+        if pool_data.is_initialized() || treasury_data.is_initialized() || lpt_data.is_initialized()
         {
           return Err(AppError::ConstructorOnce.into());
         }
-        if reserve == 0 || sen == 0 {
+        if reserve == 0 || lpt == 0 {
           return Err(AppError::ZeroValue.into());
         }
 
@@ -101,17 +101,17 @@ impl Processor {
         pool_data.token = *token_acc.key;
         pool_data.treasury = *treasury_acc.key;
         pool_data.reserve = reserve;
-        pool_data.sen = sen;
+        pool_data.lpt = lpt;
         pool_data.fee_numerator = FEE_NUMERATOR;
         pool_data.fee_denominator = FEE_DENOMINATOR;
         pool_data.initialized = true;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-        // Add sen data
-        sen_data.owner = *caller.key;
-        sen_data.pool = *pool_acc.key;
-        sen_data.sen = sen;
-        sen_data.initialized = true;
-        Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
+        // Add lpt data
+        lpt_data.owner = *caller.key;
+        lpt_data.pool = *pool_acc.key;
+        lpt_data.lpt = lpt;
+        lpt_data.initialized = true;
+        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
         Ok(())
       }
@@ -122,7 +122,7 @@ impl Processor {
         let caller = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
-        let sen_acc = next_account_info(accounts_iter)?;
+        let lpt_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
         let token_owner_acc = next_account_info(accounts_iter)?;
@@ -137,7 +137,7 @@ impl Processor {
         }
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
-        let mut sen_data = Sen::unpack_unchecked(&sen_acc.data.borrow())?;
+        let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
         if pool_data.token != *token_acc.key || treasury_data.token != *token_acc.key {
           return Err(AppError::IncorrectTokenId.into());
         }
@@ -168,8 +168,8 @@ impl Processor {
           ],
         )?;
 
-        // Compute corresponding paid-back sen
-        let paid_sen = (pool_data.sen as u128)
+        // Compute corresponding paid-back lpt
+        let paid_lpt = (pool_data.lpt as u128)
           .checked_mul(reserve as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(pool_data.reserve as u128)
@@ -180,43 +180,43 @@ impl Processor {
           .reserve
           .checked_add(reserve)
           .ok_or(AppError::Overflow)?;
-        pool_data.sen = pool_data
-          .sen
-          .checked_add(paid_sen)
+        pool_data.lpt = pool_data
+          .lpt
+          .checked_add(paid_lpt)
           .ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
-        // Update or Add sen data
-        if sen_data.is_initialized() {
-          if sen_data.pool != *pool_acc.key {
+        // Update or Add lpt data
+        if lpt_data.is_initialized() {
+          if lpt_data.pool != *pool_acc.key {
             return Err(AppError::UnmatchedPool.into());
           }
-          sen_data.sen = sen_data
-            .sen
-            .checked_add(paid_sen)
+          lpt_data.lpt = lpt_data
+            .lpt
+            .checked_add(paid_lpt)
             .ok_or(AppError::Overflow)?;
-          Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
+          LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
         } else {
-          if !sen_acc.is_signer {
+          if !lpt_acc.is_signer {
             return Err(AppError::InvalidOwner.into());
           }
-          sen_data.owner = *caller.key;
-          sen_data.pool = *pool_acc.key;
-          sen_data.sen = paid_sen;
-          sen_data.initialized = true;
-          Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
+          lpt_data.owner = *caller.key;
+          lpt_data.pool = *pool_acc.key;
+          lpt_data.lpt = paid_lpt;
+          lpt_data.initialized = true;
+          LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
         }
 
         Ok(())
       }
 
-      AppInstruction::RemoveLiquidity { sen } => {
+      AppInstruction::RemoveLiquidity { lpt } => {
         info!("Calling RemoveLiquidity function");
         let accounts_iter = &mut accounts.iter();
         let caller = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
-        let sen_acc = next_account_info(accounts_iter)?;
+        let lpt_acc = next_account_info(accounts_iter)?;
         let dst_acc = next_account_info(accounts_iter)?;
         let token_acc = next_account_info(accounts_iter)?;
         let token_owner_acc = next_account_info(accounts_iter)?;
@@ -231,22 +231,22 @@ impl Processor {
         }
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let treasury_data = Account::unpack(&treasury_acc.data.borrow())?;
-        let mut sen_data = Sen::unpack(&sen_acc.data.borrow())?;
+        let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
         if pool_data.token != *token_acc.key || treasury_data.token != *token_acc.key {
           return Err(AppError::IncorrectTokenId.into());
         }
-        if pool_data.treasury != *treasury_acc.key || sen_data.pool != *pool_acc.key {
+        if pool_data.treasury != *treasury_acc.key || lpt_data.pool != *pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
-        if sen == 0 {
+        if lpt == 0 {
           return Err(AppError::ZeroValue.into());
         }
 
         // Compute corresponding paid-back reserve
         let paid_reserve = (pool_data.reserve as u128)
-          .checked_mul(sen as u128)
+          .checked_mul(lpt as u128)
           .ok_or(AppError::Overflow)?
-          .checked_div(pool_data.sen as u128)
+          .checked_div(pool_data.lpt as u128)
           .ok_or(AppError::Overflow)? as u64;
 
         // Update pool
@@ -254,11 +254,11 @@ impl Processor {
           .reserve
           .checked_sub(paid_reserve)
           .ok_or(AppError::Overflow)?;
-        pool_data.sen = pool_data.sen.checked_sub(sen).ok_or(AppError::Overflow)?;
+        pool_data.lpt = pool_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-        // Update sen data
-        sen_data.sen = sen_data.sen.checked_sub(sen).ok_or(AppError::Overflow)?;
-        Sen::pack(sen_data, &mut sen_acc.data.borrow_mut())?;
+        // Update lpt data
+        lpt_data.lpt = lpt_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
+        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
         // Withdraw token
         let ix_transfer = ISRC20::transfer(
