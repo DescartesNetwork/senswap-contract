@@ -1,7 +1,8 @@
 use crate::error::AppError;
+use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isrc20::ISRC20;
-use crate::schema::{account::Account, pool::Pool, lpt::LPT};
+use crate::schema::{account::Account, lpt::LPT, pool::Pool};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -334,26 +335,29 @@ impl Processor {
           .reserve
           .checked_add(amount)
           .ok_or(AppError::Overflow)?;
-        let new_ask_reserve_no_fee = (bid_pool_data.reserve as u128)
-          .checked_mul(ask_pool_data.reserve as u128)
-          .ok_or(AppError::Overflow)?
-          .checked_div(new_bid_reserve as u128)
-          .ok_or(AppError::Overflow)? as u64;
-        let paid_amount_no_fee = ask_pool_data
+        let new_ask_reserve_without_fee = Oracle::new_ask_reserve_without_fee(
+          bid_pool_data.reserve,
+          new_bid_reserve,
+          bid_pool_data.lpt,
+          ask_pool_data.reserve,
+          ask_pool_data.lpt,
+        )
+        .ok_or(AppError::Overflow)?;
+        let paid_amount_without_fee = ask_pool_data
           .reserve
-          .checked_sub(new_ask_reserve_no_fee)
+          .checked_sub(new_ask_reserve_without_fee)
           .ok_or(AppError::Overflow)?;
         // Apply fee
-        let paid_amount_after_fee = (ask_pool_data.fee_denominator as u128)
+        let paid_amount_with_fee = (ask_pool_data.fee_denominator as u128)
           .checked_sub(ask_pool_data.fee_numerator as u128)
           .ok_or(AppError::Overflow)?
-          .checked_mul(paid_amount_no_fee as u128)
+          .checked_mul(paid_amount_without_fee as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(ask_pool_data.fee_denominator as u128)
           .ok_or(AppError::Overflow)? as u64;
-        let new_ask_reserve_after_fee = ask_pool_data
+        let new_ask_reserve_with_fee = ask_pool_data
           .reserve
-          .checked_sub(paid_amount_after_fee)
+          .checked_sub(paid_amount_with_fee)
           .ok_or(AppError::Overflow)?;
 
         // Transfer bid
@@ -379,7 +383,7 @@ impl Processor {
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
         // Transfer ask
-        ask_pool_data.reserve = new_ask_reserve_after_fee;
+        ask_pool_data.reserve = new_ask_reserve_with_fee;
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
         let ix_transfer = ISRC20::transfer(
           *token_program.key,
@@ -387,7 +391,7 @@ impl Processor {
           *ask_token_acc.key,
           *ask_treasury_acc.key,
           *dst_acc.key,
-          paid_amount_after_fee,
+          paid_amount_with_fee,
         )?;
         invoke_signed(
           &ix_transfer,
