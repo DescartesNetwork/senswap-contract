@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
-  PoolConstructor { reserve: u64, lpt: u64 },
+  InitializePool { reserve: u64, lpt: u64 },
   AddLiquidity { reserve: u64 },
   RemoveLiquidity { lpt: u64 },
   Swap { amount: u64 },
@@ -26,7 +26,7 @@ impl AppInstruction {
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::PoolConstructor { reserve, lpt }
+        Self::InitializePool { reserve, lpt }
       }
       1 => {
         let reserve = rest

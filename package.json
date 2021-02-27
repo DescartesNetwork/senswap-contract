@@ -31,7 +31,8 @@
     "@solana/web3.js": "^0.87.0",
     "fs": "0.0.1-security",
     "path": "^0.12.7",
-    "soprox-abi": "0.0.10"
+    "senswapjs": "0.0.25",
+    "soprox-abi": "0.0.11"
   },
   "devDependencies": {}
 }

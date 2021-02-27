@@ -1,13 +1,13 @@
 {
   "network": {
-    "devnet": "http://localhost:8899",
+    "devnet": "https://devnet.solana.com",
     "testnet": "",
     "mainnet": ""
   },
   "payers": [
     {
-      "address": "",
-      "secretKey": ""
+      "address": "HNuQFgpiZV6Mex9CSnZKs4EEAVzH9g3KnL8WwVwo72un",
+      "secretKey": "158fb85c0ab799efd946a7ed18d9a68ad4d669ff2a84a7c2992b751072fd7889f357700e52edf26f741c9f9d0143a09c620eb7f1489951fa1245fe8431f16ba9"
     }
   ]
 }

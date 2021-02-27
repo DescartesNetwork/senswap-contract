@@ -1,6 +1,6 @@
 const {
   sendAndConfirmTransaction, TransactionInstruction, Transaction,
-  Account, PublicKey,
+  Account, PublicKey, SYSVAR_RENT_PUBKEY,
 } = require('@solana/web3.js');
 const soproxABI = require('soprox-abi');
 const { init, info } = require('./helpers');
@@ -8,19 +8,19 @@ const { init, info } = require('./helpers');
 /**
  * Pool constructor
  */
-const poolConstructor = async (pool, treasury, lpt, srcPublicKey, tokenPublicKey, tokenProgramId, programId, payer, connection) => {
+const initialePool = async (pool, treasury, lpt, srcPublicKey, mintPublicKey, spltProgramId, programId, payer, connection) => {
   console.log('Pool constructor at', pool.publicKey.toBase58());
   console.log('Treasury constructor at', treasury.publicKey.toBase58());
   const seeds = [pool.publicKey.toBuffer()];
-  const tokenOwnerPublicKey = await PublicKey.createProgramAddress(seeds, programId);
-  console.log('Token Owner constructor at', tokenOwnerPublicKey.toBase58());
+  const treasurerPublicKey = await PublicKey.createProgramAddress(seeds, programId);
+  console.log('Token Owner constructor at', treasurerPublicKey.toBase58());
   const schema = [
     { key: 'code', type: 'u8' },
     { key: 'reserve', type: 'u64' },
     { key: 'lpt', type: 'u64' },
   ];
   const layout = new soproxABI.struct(schema, {
-    code: 0, reserve: 5000n, lpt: 1000n
+    code: 0, reserve: 5000000000000n, lpt: 1000000000000n
   });
   const instruction = new TransactionInstruction({
     keys: [
@@ -29,9 +29,10 @@ const poolConstructor = async (pool, treasury, lpt, srcPublicKey, tokenPublicKey
       { pubkey: treasury.publicKey, isSigner: true, isWritable: true },
       { pubkey: lpt.publicKey, isSigner: true, isWritable: true },
       { pubkey: srcPublicKey, isSigner: false, isWritable: true },
-      { pubkey: tokenPublicKey, isSigner: false, isWritable: false },
-      { pubkey: tokenOwnerPublicKey, isSigner: false, isWritable: false },
-      { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+      { pubkey: mintPublicKey, isSigner: false, isWritable: false },
+      { pubkey: treasurerPublicKey, isSigner: false, isWritable: false },
+      { pubkey: spltProgramId, isSigner: false, isWritable: false },
+      { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
     ],
     programId,
     data: layout.toBuffer()
@@ -52,14 +53,15 @@ const poolConstructor = async (pool, treasury, lpt, srcPublicKey, tokenPublicKey
 
 module.exports = async function () {
   console.log('\n\n*** Test constructor\n');
-  const { connection, payer, src, token, tokenProgramId, programId, registers: [pool, treasury, lpt] } = await init();
-
+  const { connection, payer, src, mint, spltProgramId, programId, registers: [pool, treasury, lpt] } = await init();
+  const srcPublicKey = src.publicKey;
+  const mintPublicKey = mint.publicKey;
   try {
-    await poolConstructor(pool, treasury, lpt, src, token, tokenProgramId, programId, payer, connection);
+    await initialePool(pool, treasury, lpt, srcPublicKey, mintPublicKey, spltProgramId, programId, payer, connection);
   } catch (er) {
     console.log(er)
     // Token or Account is already initialized
-    console.log('The token and accound may be created already');
+    console.log('The mint and accound may be created already');
   }
   console.log('Pool info:', await info(pool, connection));
   console.log('Treasury info:', await info(treasury, connection));

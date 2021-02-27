@@ -4,7 +4,7 @@
     "program": null,
     "schema": [
       {
-        "key": "token",
+        "key": "mint",
         "type": "pub"
       },
       {
@@ -35,14 +35,14 @@
   },
   {
     "key": "treasury",
-    "program": "D5cRXHjf8aMpdSgjTMf2tGuEJRSEF5azVGbYmKZeRFxc",
+    "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "schema": [
       {
-        "key": "owner",
+        "key": "mint",
         "type": "pub"
       },
       {
-        "key": "token",
+        "key": "owner",
         "type": "pub"
       },
       {
@@ -50,8 +50,36 @@
         "type": "u64"
       },
       {
-        "key": "initialized",
-        "type": "bool"
+        "key": "delegate_option",
+        "type": "u32"
+      },
+      {
+        "key": "delegate",
+        "type": "pub"
+      },
+      {
+        "key": "state",
+        "type": "u8"
+      },
+      {
+        "key": "is_native_option",
+        "type": "u32"
+      },
+      {
+        "key": "is_native",
+        "type": "u64"
+      },
+      {
+        "key": "delegated_amount",
+        "type": "u64"
+      },
+      {
+        "key": "close_authority_option",
+        "type": "u32"
+      },
+      {
+        "key": "close_authority",
+        "type": "pub"
       }
     ]
   },
@@ -72,7 +100,7 @@
         "type": "u64"
       },
       {
-        "key": "initialized",
+        "key": "is_initialized",
         "type": "bool"
       }
     ]

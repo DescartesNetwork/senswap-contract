@@ -5,53 +5,53 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-//
-// Define the data struct
-//
+///
+/// Pool struct
+///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pool {
-  pub token: Pubkey,
+  pub mint: Pubkey,
   pub treasury: Pubkey,
   pub reserve: u64,
   pub lpt: u64,
   pub fee_numerator: u64,
   pub fee_denominator: u64,
-  pub initialized: bool,
+  pub is_initialized: bool,
 }
 
-//
-// Implement Sealed trait
-//
+///
+/// Sealed trait
+///
 impl Sealed for Pool {}
 
-//
-// Implement IsInitialized trait
-//
+///
+/// IsInitialized trait
+///
 impl IsInitialized for Pool {
   fn is_initialized(&self) -> bool {
-    self.initialized
+    self.is_initialized
   }
 }
 
-//
-// Implement Pack trait
-//
+///
+/// Pack trait
+///
 impl Pack for Pool {
   // Fixed length
   const LEN: usize = 32 + 32 + 8 + 8 + 8 + 8 + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, 97];
-    let (token, treasury, reserve, lpt, fee_numerator, fee_denominator, initialized) =
+    let (mint, treasury, reserve, lpt, fee_numerator, fee_denominator, is_initialized) =
       array_refs![src, 32, 32, 8, 8, 8, 8, 1];
     Ok(Pool {
-      token: Pubkey::new_from_array(*token),
+      mint: Pubkey::new_from_array(*mint),
       treasury: Pubkey::new_from_array(*treasury),
       reserve: u64::from_le_bytes(*reserve),
       lpt: u64::from_le_bytes(*lpt),
       fee_numerator: u64::from_le_bytes(*fee_numerator),
       fee_denominator: u64::from_le_bytes(*fee_denominator),
-      initialized: match initialized {
+      is_initialized: match is_initialized {
         [0] => false,
         [1] => true,
         _ => return Err(ProgramError::InvalidAccountData),
@@ -62,29 +62,29 @@ impl Pack for Pool {
   fn pack_into_slice(&self, dst: &mut [u8]) {
     let dst = array_mut_ref![dst, 0, 97];
     let (
-      dst_token,
+      dst_mint,
       dst_treasury,
       dst_reserve,
       dst_lpt,
       dst_fee_numerator,
       dst_fee_denominator,
-      dst_initialized,
+      dst_is_initialized,
     ) = mut_array_refs![dst, 32, 32, 8, 8, 8, 8, 1];
     let &Pool {
-      token,
+      mint,
       treasury,
       reserve,
       lpt,
       fee_numerator,
       fee_denominator,
-      initialized,
+      is_initialized,
     } = self;
-    dst_token.copy_from_slice(token.as_ref());
+    dst_mint.copy_from_slice(mint.as_ref());
     dst_treasury.copy_from_slice(treasury.as_ref());
     *dst_reserve = reserve.to_le_bytes();
     *dst_lpt = lpt.to_le_bytes();
     *dst_fee_numerator = fee_numerator.to_le_bytes();
     *dst_fee_denominator = fee_denominator.to_le_bytes();
-    *dst_initialized = [initialized as u8];
+    *dst_is_initialized = [is_initialized as u8];
   }
 }

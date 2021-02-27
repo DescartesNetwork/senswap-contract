@@ -1,5 +1,5 @@
-const { PublicKey } = require('@solana/web3.js');
 const soproxABI = require('soprox-abi');
+const { createAccount, fromAddress, SPLT } = require('senswapjs');
 const { establishConnection, loadPayer } = require('../../lib/network');
 const store = require('../../lib/store');
 
@@ -9,16 +9,21 @@ const store = require('../../lib/store');
 const init = async () => {
   const connection = await establishConnection();
   const payer = await loadPayer(connection);
-  const src = new PublicKey('E1dewiwqs7zqPPzoctiWgrR7ndoyY64yc2BwU6eYny3Q');
-  const token = new PublicKey('EbU12HD74t19Jhe8JfTBPiY3ikcEMNGRv7bNbsPkdhXZ');
-  const tokenProgramId = new PublicKey('6D5sUPSzXsLPtDxBpi8fngu83FPk54CvpinX3zzZovTr');
-  const program = store.load('program');
-  const programId = new PublicKey(program.address);
-  const registers = store.load('abi').schema.map(register => {
-    register.publicKey = new PublicKey(register.address);
+  const splt = new SPLT();
+  const mint = createAccount();
+  const src = createAccount();
+  await splt.initializeMint(9, null, mint, payer);
+  await splt.initializeAccount(src, mint.publicKey.toBase58(), payer);
+  await splt.mintTo(8000000000000000000n, mint.publicKey.toBase58(), src.publicKey.toBase58(), payer);
+  const data = await splt.getAccountData(src.publicKey.toBase58());
+  console.log(data);
+  const spltProgramId = splt.spltProgramId;
+  const programId = fromAddress(store.load('program').address);
+  const registers = store.load('abi').map(register => {
+    register.publicKey = fromAddress(register.address);
     return register;
   });
-  return { connection, payer, src, token, tokenProgramId, programId, registers }
+  return { connection, payer, src, mint, spltProgramId, programId, registers }
 }
 
 /**

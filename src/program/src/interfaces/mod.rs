@@ -1,1 +1,1 @@
-pub mod isrc20;
+pub mod isplt;
