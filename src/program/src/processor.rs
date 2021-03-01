@@ -125,6 +125,33 @@ impl Processor {
         Ok(())
       }
 
+      AppInstruction::InitializeLPT {} => {
+        info!("Calling InitializeLPTfunction");
+        let accounts_iter = &mut accounts.iter();
+        let caller = next_account_info(accounts_iter)?;
+        let pool_acc = next_account_info(accounts_iter)?;
+        let lpt_acc = next_account_info(accounts_iter)?;
+
+        if pool_acc.owner != program_id || lpt_acc.owner != program_id {
+          return Err(AppError::IncorrectProgramId.into());
+        }
+        if !caller.is_signer || !lpt_acc.is_signer {
+          return Err(AppError::InvalidOwner.into());
+        }
+        let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
+        if lpt_data.is_initialized() {
+          return Err(AppError::ConstructorOnce.into());
+        }
+
+        lpt_data.owner = *caller.key;
+        lpt_data.pool = *pool_acc.key;
+        lpt_data.lpt = 0;
+        lpt_data.is_initialized = true;
+        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
+
+        Ok(())
+      }
+
       AppInstruction::AddLiquidity { reserve } => {
         info!("Calling AddLiquidity function");
         let accounts_iter = &mut accounts.iter();
@@ -141,18 +168,9 @@ impl Processor {
           return Err(AppError::InvalidOwner.into());
         }
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-        let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
-        if pool_data.treasury != *treasury_acc.key {
+        let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
+        if pool_data.treasury != *treasury_acc.key || lpt_data.pool != *pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
-        }
-        if lpt_data.is_initialized() {
-          if lpt_data.pool != *pool_acc.key {
-            return Err(AppError::UnmatchedPool.into());
-          }
-        } else {
-          if !lpt_acc.is_signer {
-            return Err(AppError::InvalidOwner.into());
-          }
         }
         if reserve == 0 {
           return Err(AppError::ZeroValue.into());
@@ -194,20 +212,12 @@ impl Processor {
           .ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
-        // Update or Initialize lpt data
-        if lpt_data.is_initialized() {
-          lpt_data.lpt = lpt_data
-            .lpt
-            .checked_add(paid_lpt)
-            .ok_or(AppError::Overflow)?;
-          LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
-        } else {
-          lpt_data.owner = *caller.key;
-          lpt_data.pool = *pool_acc.key;
-          lpt_data.lpt = paid_lpt;
-          lpt_data.is_initialized = true;
-          LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
-        }
+        // Update lpt data
+        lpt_data.lpt = lpt_data
+          .lpt
+          .checked_add(paid_lpt)
+          .ok_or(AppError::Overflow)?;
+        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
         Ok(())
       }
@@ -237,6 +247,9 @@ impl Processor {
         }
         if lpt == 0 {
           return Err(AppError::ZeroValue.into());
+        }
+        if lpt_data.lpt < lpt {
+          return Err(AppError::InsufficientFunds.into());
         }
 
         // Compute corresponding paid-back reserve
@@ -383,6 +396,44 @@ impl Processor {
           ],
           &[&seed],
         )?;
+
+        Ok(())
+      }
+
+      AppInstruction::Transfer { lpt } => {
+        let accounts_iter = &mut accounts.iter();
+        let owner = next_account_info(accounts_iter)?;
+        let src_lpt_acc = next_account_info(accounts_iter)?;
+        let dst_lpt_acc = next_account_info(accounts_iter)?;
+        if src_lpt_acc.owner != program_id || dst_lpt_acc.owner != program_id {
+          return Err(AppError::IncorrectProgramId.into());
+        }
+        let mut src_lpt_data = LPT::unpack(&src_lpt_acc.data.borrow())?;
+        let mut dst_lpt_data = LPT::unpack(&dst_lpt_acc.data.borrow())?;
+        if !owner.is_signer || *owner.key != src_lpt_data.owner {
+          return Err(AppError::InvalidOwner.into());
+        }
+        if src_lpt_data.pool != dst_lpt_data.pool {
+          return Err(AppError::UnmatchedPool.into());
+        }
+        if src_lpt_data.lpt < lpt {
+          return Err(AppError::InsufficientFunds.into());
+        }
+        if *src_lpt_acc.key == *dst_lpt_acc.key {
+          return Ok(());
+        }
+
+        // Update lpt data
+        src_lpt_data.lpt = src_lpt_data
+          .lpt
+          .checked_sub(lpt)
+          .ok_or(AppError::Overflow)?;
+        LPT::pack(src_lpt_data, &mut src_lpt_acc.data.borrow_mut())?;
+        dst_lpt_data.lpt = dst_lpt_data
+          .lpt
+          .checked_add(lpt)
+          .ok_or(AppError::Overflow)?;
+        LPT::pack(dst_lpt_data, &mut dst_lpt_acc.data.borrow_mut())?;
 
         Ok(())
       }

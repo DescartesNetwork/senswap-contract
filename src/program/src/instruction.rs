@@ -5,9 +5,11 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
   InitializePool { reserve: u64, lpt: u64 },
+  InitializeLPT,
   AddLiquidity { reserve: u64 },
   RemoveLiquidity { lpt: u64 },
   Swap { amount: u64 },
+  Transfer { lpt: u64 },
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -28,7 +30,8 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::InitializePool { reserve, lpt }
       }
-      1 => {
+      1 => Self::InitializeLPT,
+      2 => {
         let reserve = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -36,7 +39,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::AddLiquidity { reserve }
       }
-      2 => {
+      3 => {
         let lpt = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -44,13 +47,21 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { lpt }
       }
-      3 => {
+      4 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
         Self::Swap { amount }
+      }
+      5 => {
+        let lpt = rest
+          .get(..8)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::Transfer { lpt }
       }
       _ => return Err(AppError::InvalidInstruction.into()),
     })
