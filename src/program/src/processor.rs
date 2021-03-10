@@ -13,10 +13,10 @@ use solana_program::{
 };
 
 ///
-/// fee = 250/100000 = 0.25%
+/// fee = 2500000/1000000000 = 0.25%
 ///
-const FEE_NUMERATOR: u64 = 250;
-const FEE_DENOMINATOR: u64 = 100000;
+const FEE: u64 = 2500000;
+const FEE_DECIMALS: u64 = 1000000000;
 
 pub struct Processor {}
 
@@ -111,8 +111,7 @@ impl Processor {
         pool_data.treasury = *treasury_acc.key;
         pool_data.reserve = reserve;
         pool_data.lpt = lpt;
-        pool_data.fee_numerator = FEE_NUMERATOR;
-        pool_data.fee_denominator = FEE_DENOMINATOR;
+        pool_data.fee = FEE;
         pool_data.is_initialized = true;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
         // Add lpt data
@@ -331,9 +330,9 @@ impl Processor {
           .reserve
           .checked_add(amount)
           .ok_or(AppError::Overflow)?;
-        let new_ask_reserve_without_fee = Oracle::new_ask_reserve_without_fee(
-          bid_pool_data.reserve,
+        let new_ask_reserve_without_fee = Oracle::curve(
           new_bid_reserve,
+          bid_pool_data.reserve,
           bid_pool_data.lpt,
           ask_pool_data.reserve,
           ask_pool_data.lpt,
@@ -344,12 +343,10 @@ impl Processor {
           .checked_sub(new_ask_reserve_without_fee)
           .ok_or(AppError::Overflow)?;
         // Apply fee
-        let paid_amount_with_fee = (ask_pool_data.fee_denominator as u128)
-          .checked_sub(ask_pool_data.fee_numerator as u128)
-          .ok_or(AppError::Overflow)?
+        let paid_amount_with_fee = ((FEE_DECIMALS - ask_pool_data.fee) as u128)
           .checked_mul(paid_amount_without_fee as u128)
           .ok_or(AppError::Overflow)?
-          .checked_div(ask_pool_data.fee_denominator as u128)
+          .checked_div(FEE_DECIMALS as u128)
           .ok_or(AppError::Overflow)? as u64;
         let new_ask_reserve_with_fee = ask_pool_data
           .reserve

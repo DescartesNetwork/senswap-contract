@@ -20,11 +20,7 @@
         "type": "u64"
       },
       {
-        "key": "fee_numerator",
-        "type": "u64"
-      },
-      {
-        "key": "fee_denominator",
+        "key": "fee",
         "type": "u64"
       },
       {
