@@ -22,12 +22,12 @@ impl Oracle {
   ///
   /// 1/alpha = new_bid_reserve / bid_reserve
   ///
-  fn reversed_alpha(new_bid_reserve: u128, bid_reserve: u128) -> Option<BigUint> {
+  fn inverse_alpha(new_bid_reserve: u128, bid_reserve: u128) -> Option<BigUint> {
     let dpcs = BigUint::from(DOUBLE_PRECISION);
     let br = BigUint::from(bid_reserve);
     let nbr = BigUint::from(new_bid_reserve) * dpcs;
-    let reversed_alpha = nbr / br;
-    Some(reversed_alpha)
+    let inverse_alpha = nbr / br;
+    Some(inverse_alpha)
   }
 
   ///
@@ -58,10 +58,10 @@ impl Oracle {
     let dpcs = BigUint::from(DOUBLE_PRECISION);
 
     let alpha = Self::alpha(new_bid_reserve, bid_reserve)?; // Double precision
-    let reversed_alpha = Self::reversed_alpha(new_bid_reserve, bid_reserve)?; // Double precision
+    let inverse_alpha = Self::inverse_alpha(new_bid_reserve, bid_reserve)?; // Double precision
     let lambda = Self::lambda(bid_lpt, ask_lpt)?; // Single precision
 
-    let b = (reversed_alpha - alpha) / lambda; // Single precision
+    let b = (inverse_alpha - alpha) / lambda; // Single precision
     let delta = b.pow(2) + four * dpcs; // Double precision
     let beta = (Math::sqrt(delta) - b) / two; // Single precision
 
