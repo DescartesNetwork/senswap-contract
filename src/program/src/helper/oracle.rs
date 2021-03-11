@@ -1,3 +1,4 @@
+use crate::helper::math::Math;
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
 
@@ -62,7 +63,7 @@ impl Oracle {
 
     let b = (reversed_alpha - alpha) / lambda; // Single precision
     let delta = b.pow(2) + four * dpcs; // Double precision
-    let beta = (delta.sqrt() - b) / two; // Single precision
+    let beta = (Math::sqrt(delta) - b) / two; // Single precision
 
     Some(beta)
   }
