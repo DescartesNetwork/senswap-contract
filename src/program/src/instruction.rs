@@ -10,6 +10,7 @@ pub enum AppInstruction {
   RemoveLiquidity { lpt: u64 },
   Swap { amount: u64 },
   Transfer { lpt: u64 },
+  CloseLPT,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -63,6 +64,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Transfer { lpt }
       }
+      6 => Self::CloseLPT,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

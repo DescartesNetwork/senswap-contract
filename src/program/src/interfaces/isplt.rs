@@ -62,4 +62,29 @@ impl ISPLT {
       data,
     })
   }
+  ///
+  /// Close account
+  ///
+  pub fn close_account(
+    src_acc: Pubkey,
+    dst_acc: Pubkey,
+    owner: Pubkey,
+    program_id: Pubkey,
+  ) -> Result<Instruction, ProgramError> {
+    // Build data
+    let mut data = Vec::with_capacity(size_of::<Self>());
+    // Transfer - Code 9
+    data.push(9);
+    // Build accounts
+    let mut accounts = Vec::with_capacity(3);
+    accounts.push(AccountMeta::new(src_acc, false));
+    accounts.push(AccountMeta::new(dst_acc, false));
+    accounts.push(AccountMeta::new_readonly(owner, true));
+    // Return
+    Ok(Instruction {
+      program_id,
+      accounts,
+      data,
+    })
+  }
 }

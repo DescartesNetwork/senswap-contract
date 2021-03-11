@@ -288,6 +288,33 @@ impl Processor {
           &[&seed],
         )?;
 
+        // Terminate pool if LPT down to 0
+        if pool_data.lpt == 0 {
+          // Close treasury
+          let ix_close_account = ISPLT::close_account(
+            *treasury_acc.key,
+            *caller.key,
+            *treasurer_acc.key,
+            *splt_program.key,
+          )?;
+          invoke_signed(
+            &ix_close_account,
+            &[
+              treasury_acc.clone(),
+              caller.clone(),
+              treasurer_acc.clone(),
+              splt_program.clone(),
+            ],
+            &[&seed],
+          )?;
+          // Close pool
+          let dst_lamports = caller.lamports();
+          **caller.lamports.borrow_mut() = dst_lamports
+            .checked_add(pool_acc.lamports())
+            .ok_or(AppError::Overflow)?;
+          **pool_acc.lamports.borrow_mut() = 0;
+        }
+
         Ok(())
       }
 
@@ -431,6 +458,32 @@ impl Processor {
           .checked_add(lpt)
           .ok_or(AppError::Overflow)?;
         LPT::pack(dst_lpt_data, &mut dst_lpt_acc.data.borrow_mut())?;
+
+        Ok(())
+      }
+
+      AppInstruction::CloseLPT {} => {
+        info!("Calling CloseLPT function");
+        let accounts_iter = &mut accounts.iter();
+        let owner = next_account_info(accounts_iter)?;
+        let lpt_acc = next_account_info(accounts_iter)?;
+        let dst_acc = next_account_info(accounts_iter)?;
+        if lpt_acc.owner != program_id {
+          return Err(AppError::IncorrectProgramId.into());
+        }
+        let lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
+        if !owner.is_signer || *owner.key != lpt_data.owner {
+          return Err(AppError::InvalidOwner.into());
+        }
+        if lpt_data.lpt != 0 {
+          return Err(AppError::ZeroValue.into());
+        }
+
+        let lpt_lamports = lpt_acc.lamports();
+        **dst_acc.lamports.borrow_mut() = lpt_lamports
+          .checked_add(dst_acc.lamports())
+          .ok_or(AppError::Overflow)?;
+        **lpt_acc.lamports.borrow_mut() = 0;
 
         Ok(())
       }
