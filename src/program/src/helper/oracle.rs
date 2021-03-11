@@ -11,7 +11,7 @@ impl Oracle {
   ///
   /// alpha = bid_reserve / new_bid_reserve
   ///
-  fn alpha(new_bid_reserve: u128, bid_reserve: u128) -> Option<BigUint> {
+  fn alpha(new_bid_reserve: u64, bid_reserve: u64) -> Option<BigUint> {
     let dpcs = BigUint::from(DOUBLE_PRECISION);
     let br = BigUint::from(bid_reserve) * dpcs;
     let nbr = BigUint::from(new_bid_reserve);
@@ -22,7 +22,7 @@ impl Oracle {
   ///
   /// 1/alpha = new_bid_reserve / bid_reserve
   ///
-  fn inverse_alpha(new_bid_reserve: u128, bid_reserve: u128) -> Option<BigUint> {
+  fn inverse_alpha(new_bid_reserve: u64, bid_reserve: u64) -> Option<BigUint> {
     let dpcs = BigUint::from(DOUBLE_PRECISION);
     let br = BigUint::from(bid_reserve);
     let nbr = BigUint::from(new_bid_reserve) * dpcs;
@@ -33,7 +33,7 @@ impl Oracle {
   ///
   /// lambda = ask_lpt / bid_lpt
   ///
-  fn lambda(bid_lpt: u128, ask_lpt: u128) -> Option<BigUint> {
+  fn lambda(bid_lpt: u64, ask_lpt: u64) -> Option<BigUint> {
     let pcs = BigUint::from(PRECISION);
     let bl = BigUint::from(bid_lpt);
     let al = BigUint::from(ask_lpt) * pcs;
@@ -47,14 +47,9 @@ impl Oracle {
   /// Then delta = b^2 + 4 in the quadratic solution
   /// And beta = (-b + √(delta))/2
   ///
-  fn beta(
-    new_bid_reserve: u128,
-    bid_reserve: u128,
-    bid_lpt: u128,
-    ask_lpt: u128,
-  ) -> Option<BigUint> {
-    let two = BigUint::from(2u128);
-    let four = BigUint::from(4u128);
+  fn beta(new_bid_reserve: u64, bid_reserve: u64, bid_lpt: u64, ask_lpt: u64) -> Option<BigUint> {
+    let two = BigUint::from(2u64);
+    let four = BigUint::from(4u64);
     let dpcs = BigUint::from(DOUBLE_PRECISION);
 
     let alpha = Self::alpha(new_bid_reserve, bid_reserve)?; // Double precision
@@ -68,42 +63,6 @@ impl Oracle {
     Some(beta)
   }
 
-  fn curve_u128(
-    new_bid_reserve: u128,
-    bid_reserve: u128,
-    bid_lpt: u128,
-    ask_reserve: u128,
-    ask_lpt: u128,
-  ) -> Option<u128> {
-    let pcs = BigUint::from(PRECISION);
-    let beta = Self::beta(new_bid_reserve, bid_reserve, bid_lpt, ask_lpt)?; // Single precision
-    let ar = BigUint::from(ask_reserve);
-    let nar = ar * beta; // Single precision
-    let new_ask_reserve = (nar / pcs).to_u128()?;
-
-    Some(new_ask_reserve)
-  }
-
-  fn curve_u64(
-    new_bid_reserve: u64,
-    bid_reserve: u64,
-    bid_lpt: u64,
-    ask_reserve: u64,
-    ask_lpt: u64,
-  ) -> Option<u64> {
-    let new_ask_reserve = Self::curve_u128(
-      new_bid_reserve as u128,
-      bid_reserve as u128,
-      bid_lpt as u128,
-      ask_reserve as u128,
-      ask_lpt as u128,
-    )?;
-    if new_ask_reserve != new_ask_reserve as u64 as u128 {
-      return None;
-    }
-    Some(new_ask_reserve as u64)
-  }
-
   pub fn curve(
     new_bid_reserve: u64,
     bid_reserve: u64,
@@ -111,8 +70,12 @@ impl Oracle {
     ask_reserve: u64,
     ask_lpt: u64,
   ) -> Option<u64> {
-    let new_ask_reserve =
-      Self::curve_u64(new_bid_reserve, bid_reserve, bid_lpt, ask_reserve, ask_lpt)?;
+    let pcs = BigUint::from(PRECISION);
+    let beta = Self::beta(new_bid_reserve, bid_reserve, bid_lpt, ask_lpt)?; // Single precision
+    let ar = BigUint::from(ask_reserve);
+    let nar = ar * beta; // Single precision
+    let new_ask_reserve = (nar / pcs).to_u64()?;
+
     Some(new_ask_reserve)
   }
 }
