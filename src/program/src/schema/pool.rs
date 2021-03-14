@@ -1,4 +1,5 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
+use num_enum::TryFromPrimitive;
 use solana_program::{
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
@@ -6,16 +7,44 @@ use solana_program::{
 };
 
 ///
+/// Pool state
+///
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, TryFromPrimitive)]
+pub enum PoolState {
+  Uninitialized,
+  Initialized,
+  Approved,
+}
+
+impl Default for PoolState {
+  fn default() -> Self {
+    PoolState::Uninitialized
+  }
+}
+
+///
 /// Pool struct
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pool {
+  pub network: Pubkey,
   pub mint: Pubkey,
   pub treasury: Pubkey,
   pub reserve: u64,
-  pub lpt: u64,
+  pub lpt: u128,
   pub fee: u64,
-  pub is_initialized: bool,
+  pub state: PoolState,
+  pub voted: u128,
+}
+
+///
+/// Pool implementation
+///
+impl Pool {
+  pub fn is_approved(&self) -> bool {
+    self.state == PoolState::Approved
+  }
 }
 
 ///
@@ -28,7 +57,7 @@ impl Sealed for Pool {}
 ///
 impl IsInitialized for Pool {
   fn is_initialized(&self) -> bool {
-    self.is_initialized
+    self.state != PoolState::Uninitialized
   }
 }
 
@@ -37,42 +66,45 @@ impl IsInitialized for Pool {
 ///
 impl Pack for Pool {
   // Fixed length
-  const LEN: usize = 32 + 32 + 8 + 8 + 8 + 1;
+  const LEN: usize = 32 + 32 + 32 + 8 + 16 + 8 + 1 + 16;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 89];
-    let (mint, treasury, reserve, lpt, fee, is_initialized) = array_refs![src, 32, 32, 8, 8, 8, 1];
+    let src = array_ref![src, 0, 145];
+    let (network, mint, treasury, reserve, lpt, fee, state, voted) =
+      array_refs![src, 32, 32, 32, 8, 16, 8, 1, 16];
     Ok(Pool {
+      network: Pubkey::new_from_array(*network),
       mint: Pubkey::new_from_array(*mint),
       treasury: Pubkey::new_from_array(*treasury),
       reserve: u64::from_le_bytes(*reserve),
-      lpt: u64::from_le_bytes(*lpt),
+      lpt: u128::from_le_bytes(*lpt),
       fee: u64::from_le_bytes(*fee),
-      is_initialized: match is_initialized {
-        [0] => false,
-        [1] => true,
-        _ => return Err(ProgramError::InvalidAccountData),
-      },
+      state: PoolState::try_from_primitive(state[0]).or(Err(ProgramError::InvalidAccountData))?,
+      voted: u128::from_le_bytes(*voted),
     })
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 89];
-    let (dst_mint, dst_treasury, dst_reserve, dst_lpt, dst_fee, dst_is_initialized) =
-      mut_array_refs![dst, 32, 32, 8, 8, 8, 1];
+    let dst = array_mut_ref![dst, 0, 145];
+    let (dst_network, dst_mint, dst_treasury, dst_reserve, dst_lpt, dst_fee, dst_state, dst_voted) =
+      mut_array_refs![dst, 32, 32, 32, 8, 16, 8, 1, 16];
     let &Pool {
-      mint,
-      treasury,
+      ref network,
+      ref mint,
+      ref treasury,
       reserve,
       lpt,
       fee,
-      is_initialized,
+      state,
+      voted,
     } = self;
+    dst_network.copy_from_slice(network.as_ref());
     dst_mint.copy_from_slice(mint.as_ref());
     dst_treasury.copy_from_slice(treasury.as_ref());
     *dst_reserve = reserve.to_le_bytes();
     *dst_lpt = lpt.to_le_bytes();
     *dst_fee = fee.to_le_bytes();
-    *dst_is_initialized = [is_initialized as u8];
+    *dst_state = [state as u8];
+    *dst_voted = voted.to_le_bytes();
   }
 }

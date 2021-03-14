@@ -33,6 +33,8 @@ pub enum AppError {
   ZeroValue,
   #[error("Insufficient funds")]
   InsufficientFunds,
+  #[error("Incorrect network id")]
+  IncorrectNetworkId,
 }
 
 impl From<AppError> for ProgramError {
@@ -63,6 +65,7 @@ impl PrintProgramError for AppError {
       AppError::UnmatchedPool => info!("Error: Pool unmatched"),
       AppError::ZeroValue => info!("Error: Zero value"),
       AppError::InsufficientFunds => info!("Error: Insufficient funds"),
+      AppError::IncorrectNetworkId => info!("Error: Incorrect network id"),
     }
   }
 }

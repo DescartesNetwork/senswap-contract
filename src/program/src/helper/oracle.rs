@@ -33,7 +33,7 @@ impl Oracle {
   ///
   /// lambda = ask_lpt / bid_lpt
   ///
-  fn lambda(bid_lpt: u64, ask_lpt: u64) -> Option<BigUint> {
+  fn lambda(bid_lpt: u128, ask_lpt: u128) -> Option<BigUint> {
     let pcs = BigUint::from(PRECISION);
     let bl = BigUint::from(bid_lpt);
     let al = BigUint::from(ask_lpt) * pcs;
@@ -47,7 +47,7 @@ impl Oracle {
   /// Then delta = b^2 + 4 in the quadratic solution
   /// And beta = (-b + √(delta))/2
   ///
-  fn beta(new_bid_reserve: u64, bid_reserve: u64, bid_lpt: u64, ask_lpt: u64) -> Option<BigUint> {
+  fn beta(new_bid_reserve: u64, bid_reserve: u64, bid_lpt: u128, ask_lpt: u128) -> Option<BigUint> {
     let two = BigUint::from(2u64);
     let four = BigUint::from(4u64);
     let dpcs = BigUint::from(DOUBLE_PRECISION);
@@ -66,9 +66,9 @@ impl Oracle {
   pub fn curve(
     new_bid_reserve: u64,
     bid_reserve: u64,
-    bid_lpt: u64,
+    bid_lpt: u128,
     ask_reserve: u64,
-    ask_lpt: u64,
+    ask_lpt: u128,
   ) -> Option<u64> {
     let pcs = BigUint::from(PRECISION);
     let beta = Self::beta(new_bid_reserve, bid_reserve, bid_lpt, ask_lpt)?; // Single precision
