@@ -374,33 +374,6 @@ impl Processor {
           &[&seed],
         )?;
 
-        // Terminate pool if LPT down to 0
-        if pool_data.lpt == 0 {
-          // Close treasury
-          let ix_close_account = ISPLT::close_account(
-            *treasury_acc.key,
-            *owner.key,
-            *treasurer.key,
-            *splt_program.key,
-          )?;
-          invoke_signed(
-            &ix_close_account,
-            &[
-              treasury_acc.clone(),
-              owner.clone(),
-              treasurer.clone(),
-              splt_program.clone(),
-            ],
-            &[&seed],
-          )?;
-          // Close pool
-          let dst_lamports = owner.lamports();
-          **owner.lamports.borrow_mut() = dst_lamports
-            .checked_add(pool_acc.lamports())
-            .ok_or(AppError::Overflow)?;
-          **pool_acc.lamports.borrow_mut() = 0;
-        }
-
         Ok(())
       }
 
