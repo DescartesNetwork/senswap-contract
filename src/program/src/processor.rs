@@ -323,9 +323,9 @@ impl Processor {
 
         // Compute corresponding paid-back reserve
         let paid_reserve = (pool_data.reserve as u128)
-          .checked_mul(lpt as u128)
+          .checked_mul(lpt)
           .ok_or(AppError::Overflow)?
-          .checked_div(pool_data.lpt as u128)
+          .checked_div(pool_data.lpt)
           .ok_or(AppError::Overflow)? as u64;
 
         // Update lpt data
@@ -407,35 +407,35 @@ impl Processor {
       AppInstruction::Swap { amount } => {
         info!("Calling Swap function");
         let accounts_iter = &mut accounts.iter();
-        let caller = next_account_info(accounts_iter)?;
+        let owner = next_account_info(accounts_iter)?;
         let bid_pool_acc = next_account_info(accounts_iter)?;
         let bid_treasury_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let ask_pool_acc = next_account_info(accounts_iter)?;
         let ask_treasury_acc = next_account_info(accounts_iter)?;
         let dst_acc = next_account_info(accounts_iter)?;
-        let ask_treasurer_acc = next_account_info(accounts_iter)?;
+        let ask_treasurer = next_account_info(accounts_iter)?;
         let splt_program = next_account_info(accounts_iter)?;
         if bid_pool_acc.owner != program_id || ask_pool_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        let seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
-        let ask_treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-        if !caller.is_signer || ask_treasurer_key != *ask_treasurer_acc.key {
-          return Err(AppError::InvalidOwner.into());
-        }
+
         let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
         let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
+        let seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
+        let ask_treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !owner.is_signer
+          || bid_pool_data.treasury != *bid_treasury_acc.key
+          || ask_pool_data.treasury != *ask_treasury_acc.key
+          || ask_treasurer_key != *ask_treasurer.key
+        {
+          return Err(AppError::InvalidOwner.into());
+        }
         if !bid_pool_data.is_approved()
           || !ask_pool_data.is_approved()
           || bid_pool_data.network != ask_pool_data.network
         {
           return Err(AppError::IncorrectNetworkId.into());
-        }
-        if bid_pool_data.treasury != *bid_treasury_acc.key
-          || ask_pool_data.treasury != *ask_treasury_acc.key
-        {
-          return Err(AppError::UnmatchedPool.into());
         }
         if amount == 0 {
           return Err(AppError::ZeroValue.into());
@@ -477,7 +477,7 @@ impl Processor {
           amount,
           *src_acc.key,
           *bid_treasury_acc.key,
-          *caller.key,
+          *owner.key,
           *splt_program.key,
         )?;
         invoke(
@@ -485,7 +485,7 @@ impl Processor {
           &[
             src_acc.clone(),
             bid_treasury_acc.clone(),
-            caller.clone(),
+            owner.clone(),
             splt_program.clone(),
           ],
         )?;
@@ -499,7 +499,7 @@ impl Processor {
           paid_amount_with_fee,
           *ask_treasury_acc.key,
           *dst_acc.key,
-          *ask_treasurer_acc.key,
+          *ask_treasurer.key,
           *splt_program.key,
         )?;
         invoke_signed(
@@ -507,7 +507,7 @@ impl Processor {
           &[
             ask_treasury_acc.clone(),
             dst_acc.clone(),
-            ask_treasurer_acc.clone(),
+            ask_treasurer.clone(),
             splt_program.clone(),
           ],
           &[&seed],
@@ -517,56 +517,62 @@ impl Processor {
       }
 
       AppInstruction::Vote {} => {
+        info!("Calling Vote function");
         let accounts_iter = &mut accounts.iter();
         let owner = next_account_info(accounts_iter)?;
         let network_acc = next_account_info(accounts_iter)?;
         let prev_pool_acc = next_account_info(accounts_iter)?;
+        let next_pool_acc = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let lpt_acc = next_account_info(accounts_iter)?;
-
         if network_acc.owner != program_id
+          || prev_pool_acc.owner != program_id
+          || next_pool_acc.owner != program_id
           || pool_acc.owner != program_id
           || lpt_acc.owner != program_id
         {
           return Err(AppError::IncorrectProgramId.into());
         }
+
         let _ = Network::unpack(&network_acc.data.borrow())?;
         let mut prev_pool_data = Pool::unpack(&prev_pool_acc.data.borrow())?;
-        let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
+        let mut next_pool_data = Pool::unpack(&next_pool_acc.data.borrow())?;
+        let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-        if !owner.is_signer || *owner.key != lpt_data.owner {
+        if !owner.is_signer || lpt_data.owner != *owner.key {
           return Err(AppError::InvalidOwner.into());
         }
-        if pool_data.network != *network_acc.key || !pool_data.is_approved() {
-          return Err(AppError::IncorrectNetworkId.into());
-        }
-        if lpt_data.voting != *prev_pool_acc.key {
+        if lpt_data.pool != *pool_acc.key || lpt_data.voting != *prev_pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
-        if lpt_data.lpt == 0 {
-          return Err(AppError::ZeroValue.into());
+        if prev_pool_data.network != *network_acc.key
+          || next_pool_data.network != *network_acc.key
+          || pool_data.network != *network_acc.key
+          || !pool_data.is_approved()
+        {
+          return Err(AppError::IncorrectNetworkId.into());
         }
-        if *pool_acc.key == *prev_pool_acc.key {
+        if *prev_pool_acc.key == *next_pool_acc.key {
           return Ok(());
         }
 
-        // Update LPT data
-        lpt_data.voting = *pool_acc.key;
-        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
         // Update previous pool data
         prev_pool_data.voted = prev_pool_data
           .voted
           .checked_sub(lpt_data.lpt)
           .ok_or(AppError::Overflow)?;
         Pool::pack(prev_pool_data, &mut prev_pool_acc.data.borrow_mut())?;
-        // Update pool data
-        pool_data.voted = pool_data
+        // Update next pool data
+        next_pool_data.voted = next_pool_data
           .voted
           .checked_add(lpt_data.lpt)
           .ok_or(AppError::Overflow)?;
-        Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
+        Pool::pack(next_pool_data, &mut next_pool_acc.data.borrow_mut())?;
+        // Update LPT data
+        lpt_data.voting = *next_pool_acc.key;
+        LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
         // Checked approve
-        Self::checked_approve(&network_acc, &pool_acc)?;
+        Self::checked_approve(&network_acc, &next_pool_acc)?;
 
         Ok(())
       }
@@ -580,8 +586,9 @@ impl Processor {
         if lpt_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
+
         let lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-        if !owner.is_signer || *owner.key != lpt_data.owner {
+        if !owner.is_signer || lpt_data.owner != *owner.key {
           return Err(AppError::InvalidOwner.into());
         }
         if lpt_data.lpt != 0 {

@@ -61,6 +61,8 @@ Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst
 - [ ] bid_pool_data.is_initialized
 - [ ] ask_pool_data.is_initialized
 - [ ] owner.is_signer
+- [ ] bid_pool_data.treasury = bid_treasury_acc
+- [ ] ask_pool_data.treasury = ask_treasury_acc
 - [ ] program_address(seed(ask_pool_acc), program_id) == ask_treasurer
 - [ ] bid_pool_data.network == ask_pool_data.network
 - [ ] bid_pool_data.is_approved
