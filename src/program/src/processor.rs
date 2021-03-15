@@ -135,12 +135,13 @@ impl Processor {
         pool_data.lpt = lpt;
         pool_data.fee = FEE;
         pool_data.state = pool_state;
-        pool_data.voted = 0;
+        pool_data.voted = lpt;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
         // Add lpt data
         lpt_data.owner = *caller.key;
         lpt_data.pool = *pool_acc.key;
         lpt_data.lpt = lpt;
+        lpt_data.voting = *pool_acc.key;
         lpt_data.is_initialized = true;
         LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
@@ -168,6 +169,7 @@ impl Processor {
         lpt_data.owner = *caller.key;
         lpt_data.pool = *pool_acc.key;
         lpt_data.lpt = 0;
+        lpt_data.voting = *pool_acc.key;
         lpt_data.is_initialized = true;
         LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
@@ -212,6 +214,14 @@ impl Processor {
           return Err(AppError::ZeroValue.into());
         }
 
+        // Compute corresponding paid-back lpt
+        let paid_lpt = pool_data
+          .lpt
+          .checked_mul(reserve as u128)
+          .ok_or(AppError::Overflow)?
+          .checked_div(pool_data.reserve as u128)
+          .ok_or(AppError::Overflow)?;
+
         // Deposit token
         let ix_transfer = ISPLT::transfer(
           reserve,
@@ -230,14 +240,6 @@ impl Processor {
           ],
         )?;
 
-        // Compute corresponding paid-back lpt
-        let paid_lpt = pool_data
-          .lpt
-          .checked_mul(reserve as u128)
-          .ok_or(AppError::Overflow)?
-          .checked_div(pool_data.reserve as u128)
-          .ok_or(AppError::Overflow)?;
-
         // Update pool data
         pool_data.reserve = pool_data
           .reserve
@@ -248,20 +250,24 @@ impl Processor {
           .checked_add(paid_lpt)
           .ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-        // Update previous pool and network data
+        // Update previous pool data
         prev_pool_data.voted = pool_data
           .voted
           .checked_add(paid_lpt)
           .ok_or(AppError::Overflow)?;
         Pool::pack(prev_pool_data, &mut prev_pool_acc.data.borrow_mut())?;
-        // Update network data
-        network_data.volume = network_data
-          .volume
-          .checked_add(paid_lpt)
-          .ok_or(AppError::Overflow)?;
-        Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
-        // Checked approve
-        Self::checked_approve(&network_acc, &prev_pool_acc)?;
+        // If the lpt's pool is approved
+        // It would effect to the vote, then check it
+        if pool_data.is_approved() {
+          // Update network data
+          network_data.volume = network_data
+            .volume
+            .checked_add(paid_lpt)
+            .ok_or(AppError::Overflow)?;
+          Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
+          // Checked approve
+          Self::checked_approve(&network_acc, &prev_pool_acc)?;
+        }
         // Update lpt data
         lpt_data.lpt = lpt_data
           .lpt
@@ -339,12 +345,16 @@ impl Processor {
           .ok_or(AppError::Overflow)?;
         pool_data.lpt = pool_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-        // Update network data
-        network_data.volume = network_data
-          .volume
-          .checked_sub(lpt)
-          .ok_or(AppError::Overflow)?;
-        Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
+        // If the lpt's pool is approved
+        // It would effect to the vote, then check it
+        if pool_data.is_approved() {
+          // Update network data
+          network_data.volume = network_data
+            .volume
+            .checked_sub(lpt)
+            .ok_or(AppError::Overflow)?;
+          Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
+        }
 
         // Withdraw token
         let ix_transfer = ISPLT::transfer(
@@ -521,14 +531,14 @@ impl Processor {
         {
           return Err(AppError::IncorrectProgramId.into());
         }
-        let _network_data = Network::unpack(&network_acc.data.borrow())?;
+        let _ = Network::unpack(&network_acc.data.borrow())?;
         let mut prev_pool_data = Pool::unpack(&prev_pool_acc.data.borrow())?;
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
         if !owner.is_signer || *owner.key != lpt_data.owner {
           return Err(AppError::InvalidOwner.into());
         }
-        if pool_data.network != *network_acc.key {
+        if pool_data.network != *network_acc.key || !pool_data.is_approved() {
           return Err(AppError::IncorrectNetworkId.into());
         }
         if lpt_data.voting != *prev_pool_acc.key {
