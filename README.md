@@ -2,7 +2,7 @@
 
 ## Validation checklist
 
-Initialize Pool: `[owner, network, pool, treasury, lpt, src, mint, treasurer, splt, sysvar_rent]`
+Initialize Pool: `(reserve, lpt) [owner, network, pool, treasury, lpt, src, mint, treasurer, splt, sysvar_rent]`
 
 - [ ] network_acc.owner == pool_acc.owner == lpt_acc.owner == program_id
 - [ ] !pool_data.is_initialized
@@ -11,6 +11,7 @@ Initialize Pool: `[owner, network, pool, treasury, lpt, src, mint, treasurer, sp
 - [ ] pool_acc.is_signer
 - [ ] lpt_acc.is_signer
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
+- [ ] reserve != 0 && lpt != 0
 - [ ] if !network_data.is_initialized { network_acc.is_signer }
 
 Initialized LPT: `[owner, pool, lpt]`

@@ -3,7 +3,6 @@ use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
 use crate::schema::{
-  account::Account,
   lpt::LPT,
   network::Network,
   pool::{Pool, PoolState},
@@ -38,40 +37,38 @@ impl Processor {
       AppInstruction::InitializePool { reserve, lpt } => {
         info!("Calling InitializePool function");
         let accounts_iter = &mut accounts.iter();
-        let caller = next_account_info(accounts_iter)?;
+        let owner = next_account_info(accounts_iter)?;
         let network_acc = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
         let lpt_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
         let mint_acc = next_account_info(accounts_iter)?;
-        let treasurer_acc = next_account_info(accounts_iter)?;
+        let treasurer = next_account_info(accounts_iter)?;
         let splt_program = next_account_info(accounts_iter)?;
         let sysvar_rent_acc = next_account_info(accounts_iter)?;
-        if pool_acc.owner != program_id || lpt_acc.owner != program_id {
+        if network_acc.owner != program_id
+          || pool_acc.owner != program_id
+          || lpt_acc.owner != program_id
+        {
           return Err(AppError::IncorrectProgramId.into());
         }
-        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
-        let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-        if !caller.is_signer
-          || !pool_acc.is_signer
-          || !treasury_acc.is_signer
-          || !lpt_acc.is_signer
-          || treasurer_key != *treasurer_acc.key
-        {
-          return Err(AppError::InvalidOwner.into());
-        }
+
         let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
-        let treasury_data = Account::unpack_unchecked(&treasury_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
-        if pool_data.is_initialized() || treasury_data.is_initialized() || lpt_data.is_initialized()
-        {
+        if pool_data.is_initialized() || lpt_data.is_initialized() {
           return Err(AppError::ConstructorOnce.into());
         }
-        let src_data = Account::unpack(&src_acc.data.borrow())?;
-        if src_data.mint != *mint_acc.key {
-          return Err(AppError::IncorrectTokenId.into());
+
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !owner.is_signer
+          || !pool_acc.is_signer
+          || !lpt_acc.is_signer
+          || treasurer_key != *treasurer.key
+        {
+          return Err(AppError::InvalidOwner.into());
         }
         if reserve == 0 || lpt == 0 {
           return Err(AppError::ZeroValue.into());
@@ -93,7 +90,7 @@ impl Processor {
         let ix_initialize_account = ISPLT::initialize_account(
           *treasury_acc.key,
           *mint_acc.key,
-          *treasurer_acc.key,
+          *treasurer.key,
           *sysvar_rent_acc.key,
           *splt_program.key,
         )?;
@@ -102,7 +99,7 @@ impl Processor {
           &[
             treasury_acc.clone(),
             mint_acc.clone(),
-            treasurer_acc.clone(),
+            treasurer.clone(),
             sysvar_rent_acc.clone(),
             splt_program.clone(),
           ],
@@ -114,7 +111,7 @@ impl Processor {
           reserve,
           *src_acc.key,
           *treasury_acc.key,
-          *caller.key,
+          *owner.key,
           *splt_program.key,
         )?;
         invoke(
@@ -122,7 +119,7 @@ impl Processor {
           &[
             src_acc.clone(),
             treasury_acc.clone(),
-            caller.clone(),
+            owner.clone(),
             splt_program.clone(),
           ],
         )?;
@@ -138,7 +135,7 @@ impl Processor {
         pool_data.voted = lpt;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
         // Add lpt data
-        lpt_data.owner = *caller.key;
+        lpt_data.owner = *owner.key;
         lpt_data.pool = *pool_acc.key;
         lpt_data.lpt = lpt;
         lpt_data.voting = *pool_acc.key;
