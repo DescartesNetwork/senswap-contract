@@ -4,7 +4,7 @@
 
 Initialize Pool: `[owner, network, pool, treasury, lpt, src, mint, treasurer, splt, sysvar_rent]`
 
-- [ ] pool_acc.owner == lpt_acc.owner == program_id
+- [ ] network_acc.owner == pool_acc.owner == lpt_acc.owner == program_id
 - [ ] owner.is_signer
 - [ ] pool_acc.is_signer
 - [ ] treasury_acc.is_signer
