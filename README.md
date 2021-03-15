@@ -9,7 +9,6 @@ Initialize Pool: `[owner, network, pool, treasury, lpt, src, mint, treasurer, sp
 - [ ] !lpt_data.is_initilized
 - [ ] owner.is_signer
 - [ ] pool_acc.is_signer
-- [ ] treasury_acc.is_signer
 - [ ] lpt_acc.is_signer
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
 - [ ] if !network_data.is_initialized { network_acc.is_signer }

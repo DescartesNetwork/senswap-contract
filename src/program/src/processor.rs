@@ -611,6 +611,8 @@ impl Processor {
     }
     if pool_data
       .voted
+      .checked_sub(pool_data.lpt)
+      .ok_or(AppError::Overflow)?
       .checked_mul(DECIMALS as u128)
       .ok_or(AppError::Overflow)?
       .checked_div(network_data.volume)
