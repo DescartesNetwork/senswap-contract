@@ -78,7 +78,7 @@ Vote: `[owner, network, prev_pool, next_pool, pool, lpt]`
 
 Close LPT: `[owner, lpt]`
 
-- [ ] lpt_acc,owner == program_id
+- [ ] lpt_acc.owner == program_id
 - [ ] owner.is_signer
 - [ ] lpt_data.owner == owner
 - [ ] lpt_data.lpt == 0
