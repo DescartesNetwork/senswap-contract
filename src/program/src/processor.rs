@@ -148,22 +148,23 @@ impl Processor {
       AppInstruction::InitializeLPT {} => {
         info!("Calling InitializeLPTfunction");
         let accounts_iter = &mut accounts.iter();
-        let caller = next_account_info(accounts_iter)?;
+        let owner = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let lpt_acc = next_account_info(accounts_iter)?;
-
         if pool_acc.owner != program_id || lpt_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if !caller.is_signer || !lpt_acc.is_signer {
-          return Err(AppError::InvalidOwner.into());
-        }
+
         let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
         if lpt_data.is_initialized() {
           return Err(AppError::ConstructorOnce.into());
         }
 
-        lpt_data.owner = *caller.key;
+        if !owner.is_signer || !lpt_acc.is_signer {
+          return Err(AppError::InvalidOwner.into());
+        }
+
+        lpt_data.owner = *owner.key;
         lpt_data.pool = *pool_acc.key;
         lpt_data.lpt = 0;
         lpt_data.voting = *pool_acc.key;
@@ -176,7 +177,7 @@ impl Processor {
       AppInstruction::AddLiquidity { reserve } => {
         info!("Calling AddLiquidity function");
         let accounts_iter = &mut accounts.iter();
-        let caller = next_account_info(accounts_iter)?;
+        let owner = next_account_info(accounts_iter)?;
         let network_acc = next_account_info(accounts_iter)?;
         let prev_pool_acc = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
@@ -191,20 +192,21 @@ impl Processor {
         {
           return Err(AppError::IncorrectProgramId.into());
         }
-        if !caller.is_signer {
-          return Err(AppError::InvalidOwner.into());
-        }
+
         let mut network_data = Network::unpack(&network_acc.data.borrow())?;
         let mut prev_pool_data = Pool::unpack(&prev_pool_acc.data.borrow())?;
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-        if pool_data.treasury != *treasury_acc.key || lpt_data.pool != *pool_acc.key {
+        if !owner.is_signer
+          || pool_data.treasury != *treasury_acc.key
+          || lpt_data.owner != *owner.key
+        {
+          return Err(AppError::InvalidOwner.into());
+        }
+        if lpt_data.pool != *pool_acc.key || lpt_data.voting != *prev_pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
-        if lpt_data.voting != *prev_pool_acc.key
-          || prev_pool_data.network != *network_acc.key
-          || pool_data.network != *network_acc.key
-        {
+        if prev_pool_data.network != *network_acc.key || pool_data.network != *network_acc.key {
           return Err(AppError::IncorrectNetworkId.into());
         }
         if reserve == 0 {
@@ -224,7 +226,7 @@ impl Processor {
           reserve,
           *src_acc.key,
           *treasury_acc.key,
-          *caller.key,
+          *owner.key,
           *splt_program.key,
         )?;
         invoke(
@@ -232,7 +234,7 @@ impl Processor {
           &[
             src_acc.clone(),
             treasury_acc.clone(),
-            caller.clone(),
+            owner.clone(),
             splt_program.clone(),
           ],
         )?;
