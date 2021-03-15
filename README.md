@@ -29,6 +29,7 @@ Add Liquidity: `(reserve) [owner, network, prev_pool, pool, treasury, lpt, src, 
 - [ ] lpt_data.is_initialized
 - [ ] owner.is_signer
 - [ ] lpt_data.owner == owner
+- [ ] lpt_data.pool == pool_acc
 - [ ] pool_data.network == prev_pool_data.network == network_acc
 - [ ] reserve != 0
 - [ ] if pool_data.is_approved { Add lpt to network & Recheck approval condition }
@@ -42,6 +43,7 @@ Remove Liquidity: `(lpt) [owner, network, prev_pool, pool, treasury, lpt, dst, t
 - [ ] lpt_data.is_initialized
 - [ ] owner.is_signer
 - [ ] lpt_data.owner == owner
+- [ ] lpt_data.pool == pool_acc
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
 - [ ] pool_data.network == prev_pool_data.network == network_acc
 - [ ] lpt <= lpt_data.lpt
@@ -51,9 +53,7 @@ Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst
 
 - [ ] bid_pool_acc.owner == ask_pool_acc.owner == program_id
 - [ ] bid_pool_data.is_initialized
-- [ ] bid_treasury_data.is_initialized
 - [ ] ask_pool_data.is_initialized
-- [ ] ask_treasury_data.is_initialized
 - [ ] owner.is_signer
 - [ ] program_address(seed(ask_pool_acc), program_id) == ask_treasurer
 - [ ] bid_pool_data.network == ask_pool_data.network
@@ -72,6 +72,7 @@ Vote: `[owner, network, prev_pool, next_pool, pool, lpt]`
 - [ ] lpt_data.is_initialized
 - [ ] owner.is_signer
 - [ ] lpt_data.owner == owner
+- [ ] lpt_data.pool == pool_acc
 - [ ] prev_pool_data.network == next_pool_data.network == pool_data.network == network_acc
 - [ ] pool_data.is_approved
 - [ ] if prev_pool_acc == next_pool_acc { Return }
