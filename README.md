@@ -45,11 +45,13 @@ Remove Liquidity: `(lpt) [owner, network, prev_pool, pool, treasury, lpt, dst, t
 - [ ] pool_data.is_initialized
 - [ ] lpt_data.is_initialized
 - [ ] owner.is_signer
+- [ ] pool_data.treasury = treasury_acc
 - [ ] lpt_data.owner == owner
 - [ ] lpt_data.pool == pool_acc
 - [ ] lpt_data.voting == prev_pool_acc
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
 - [ ] pool_data.network == prev_pool_data.network == network_acc
+- [ ] lpt != 0
 - [ ] lpt <= lpt_data.lpt
 - [ ] if pool_data.is_approved { Remove lpt to network }
 

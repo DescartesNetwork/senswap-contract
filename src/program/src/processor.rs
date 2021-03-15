@@ -60,7 +60,6 @@ impl Processor {
         if pool_data.is_initialized() || lpt_data.is_initialized() {
           return Err(AppError::ConstructorOnce.into());
         }
-
         let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
         let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
         if !owner.is_signer
@@ -159,7 +158,6 @@ impl Processor {
         if lpt_data.is_initialized() {
           return Err(AppError::ConstructorOnce.into());
         }
-
         if !owner.is_signer || !lpt_acc.is_signer {
           return Err(AppError::InvalidOwner.into());
         }
@@ -280,14 +278,14 @@ impl Processor {
       AppInstruction::RemoveLiquidity { lpt } => {
         info!("Calling RemoveLiquidity function");
         let accounts_iter = &mut accounts.iter();
-        let caller = next_account_info(accounts_iter)?;
+        let owner = next_account_info(accounts_iter)?;
         let network_acc = next_account_info(accounts_iter)?;
         let prev_pool_acc = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
         let lpt_acc = next_account_info(accounts_iter)?;
         let dst_acc = next_account_info(accounts_iter)?;
-        let treasurer_acc = next_account_info(accounts_iter)?;
+        let treasurer = next_account_info(accounts_iter)?;
         let splt_program = next_account_info(accounts_iter)?;
         if network_acc.owner != program_id
           || prev_pool_acc.owner != program_id
@@ -296,22 +294,24 @@ impl Processor {
         {
           return Err(AppError::IncorrectProgramId.into());
         }
-        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
-        let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-        if !caller.is_signer || treasurer_key != *treasurer_acc.key {
-          return Err(AppError::InvalidOwner.into());
-        }
+
         let mut network_data = Network::unpack(&network_acc.data.borrow())?;
         let mut prev_pool_data = Pool::unpack(&prev_pool_acc.data.borrow())?;
         let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-        if pool_data.treasury != *treasury_acc.key || lpt_data.pool != *pool_acc.key {
+        let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+        let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+        if !owner.is_signer
+          || treasurer_key != *treasurer.key
+          || pool_data.treasury != *treasury_acc.key
+          || lpt_data.owner != *owner.key
+        {
+          return Err(AppError::InvalidOwner.into());
+        }
+        if lpt_data.pool != *pool_acc.key || lpt_data.voting != *prev_pool_acc.key {
           return Err(AppError::UnmatchedPool.into());
         }
-        if lpt_data.voting != *prev_pool_acc.key
-          || pool_data.network != *network_acc.key
-          || prev_pool_data.network != *network_acc.key
-        {
+        if pool_data.network != *network_acc.key || prev_pool_data.network != *network_acc.key {
           return Err(AppError::IncorrectNetworkId.into());
         }
         if lpt == 0 {
@@ -360,7 +360,7 @@ impl Processor {
           paid_reserve,
           *treasury_acc.key,
           *dst_acc.key,
-          *treasurer_acc.key,
+          *treasurer.key,
           *splt_program.key,
         )?;
         invoke_signed(
@@ -368,7 +368,7 @@ impl Processor {
           &[
             treasury_acc.clone(),
             dst_acc.clone(),
-            treasurer_acc.clone(),
+            treasurer.clone(),
             splt_program.clone(),
           ],
           &[&seed],
@@ -379,23 +379,23 @@ impl Processor {
           // Close treasury
           let ix_close_account = ISPLT::close_account(
             *treasury_acc.key,
-            *caller.key,
-            *treasurer_acc.key,
+            *owner.key,
+            *treasurer.key,
             *splt_program.key,
           )?;
           invoke_signed(
             &ix_close_account,
             &[
               treasury_acc.clone(),
-              caller.clone(),
-              treasurer_acc.clone(),
+              owner.clone(),
+              treasurer.clone(),
               splt_program.clone(),
             ],
             &[&seed],
           )?;
           // Close pool
-          let dst_lamports = caller.lamports();
-          **caller.lamports.borrow_mut() = dst_lamports
+          let dst_lamports = owner.lamports();
+          **owner.lamports.borrow_mut() = dst_lamports
             .checked_add(pool_acc.lamports())
             .ok_or(AppError::Overflow)?;
           **pool_acc.lamports.borrow_mut() = 0;
