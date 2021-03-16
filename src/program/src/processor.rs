@@ -2,7 +2,11 @@ use crate::error::AppError;
 use crate::helper::curve::Curve;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
-use crate::schema::{lpt::LPT, pool::Pool};
+use crate::schema::{
+  lpt::LPT,
+  network::{Network, MAX_MINTS},
+  pool::Pool,
+};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -30,10 +34,36 @@ impl Processor {
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
+      AppInstruction::InitializeNetwork {} => {
+        info!("Calling InitializeNetwork function");
+        let accounts_iter = &mut accounts.iter();
+        let network_acc = next_account_info(accounts_iter)?;
+        if network_acc.owner != program_id {
+          return Err(AppError::IncorrectProgramId.into());
+        }
+
+        let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
+        if network_data.is_initialized() {
+          return Err(AppError::ConstructorOnce.into());
+        }
+        if !network_acc.is_signer {
+          return Err(AppError::InvalidOwner.into());
+        }
+
+        network_data.is_initialized = true;
+        for i in 0..MAX_MINTS {
+          network_data.mints[i] = *network_acc.key;
+        }
+        Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
+
+        Ok(())
+      }
+
       AppInstruction::InitializePool { reserve, lpt } => {
         info!("Calling InitializePool function");
         let accounts_iter = &mut accounts.iter();
         let owner = next_account_info(accounts_iter)?;
+        let network_acc = next_account_info(accounts_iter)?;
         let pool_acc = next_account_info(accounts_iter)?;
         let treasury_acc = next_account_info(accounts_iter)?;
         let lpt_acc = next_account_info(accounts_iter)?;
@@ -42,10 +72,14 @@ impl Processor {
         let treasurer = next_account_info(accounts_iter)?;
         let splt_program = next_account_info(accounts_iter)?;
         let sysvar_rent_acc = next_account_info(accounts_iter)?;
-        if pool_acc.owner != program_id || lpt_acc.owner != program_id {
+        if network_acc.owner != program_id
+          || pool_acc.owner != program_id
+          || lpt_acc.owner != program_id
+        {
           return Err(AppError::IncorrectProgramId.into());
         }
 
+        let network_data = Network::unpack(&network_acc.data.borrow())?;
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
         if pool_data.is_initialized() || lpt_data.is_initialized() {
@@ -59,6 +93,9 @@ impl Processor {
           || treasurer_key != *treasurer.key
         {
           return Err(AppError::InvalidOwner.into());
+        }
+        if !network_data.is_approved(mint_acc.key) {
+          return Err(AppError::UnmatchedPool.into());
         }
         if reserve == 0 || lpt == 0 {
           return Err(AppError::ZeroValue.into());
@@ -104,6 +141,7 @@ impl Processor {
 
         // Add pool data
         pool_data.owner = *owner.key;
+        pool_data.network = *network_acc.key;
         pool_data.mint = *mint_acc.key;
         pool_data.treasury = *treasury_acc.key;
         pool_data.reserve = reserve;
@@ -321,6 +359,9 @@ impl Processor {
           || ask_treasurer_key != *ask_treasurer.key
         {
           return Err(AppError::InvalidOwner.into());
+        }
+        if bid_pool_data.network != ask_pool_data.network {
+          return Err(AppError::IncorrectNetworkId.into());
         }
         if amount == 0 {
           return Err(AppError::ZeroValue.into());

@@ -11,6 +11,7 @@ use solana_program::{
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pool {
   pub owner: Pubkey,
+  pub network: Pubkey,
   pub mint: Pubkey,
   pub treasury: Pubkey,
   pub reserve: u64,
@@ -38,14 +39,15 @@ impl IsInitialized for Pool {
 ///
 impl Pack for Pool {
   // Fixed length
-  const LEN: usize = 32 + 32 + 32 + 8 + 16 + 8 + 1;
+  const LEN: usize = 32 + 32 + 32 + 32 + 8 + 16 + 8 + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 129];
-    let (owner, mint, treasury, reserve, lpt, fee, is_initialized) =
-      array_refs![src, 32, 32, 32, 8, 16, 8, 1];
+    let src = array_ref![src, 0, 161];
+    let (owner, network, mint, treasury, reserve, lpt, fee, is_initialized) =
+      array_refs![src, 32, 32, 32, 32, 8, 16, 8, 1];
     Ok(Pool {
       owner: Pubkey::new_from_array(*owner),
+      network: Pubkey::new_from_array(*network),
       mint: Pubkey::new_from_array(*mint),
       treasury: Pubkey::new_from_array(*treasury),
       reserve: u64::from_le_bytes(*reserve),
@@ -60,11 +62,20 @@ impl Pack for Pool {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 129];
-    let (dst_owner, dst_mint, dst_treasury, dst_reserve, dst_lpt, dst_fee, dst_is_initialized) =
-      mut_array_refs![dst, 32, 32, 32, 8, 16, 8, 1];
+    let dst = array_mut_ref![dst, 0, 161];
+    let (
+      dst_owner,
+      dst_network,
+      dst_mint,
+      dst_treasury,
+      dst_reserve,
+      dst_lpt,
+      dst_fee,
+      dst_is_initialized,
+    ) = mut_array_refs![dst, 32, 32, 32, 32, 8, 16, 8, 1];
     let &Pool {
       ref owner,
+      ref network,
       ref mint,
       ref treasury,
       reserve,
@@ -73,6 +84,7 @@ impl Pack for Pool {
       is_initialized,
     } = self;
     dst_owner.copy_from_slice(owner.as_ref());
+    dst_network.copy_from_slice(network.as_ref());
     dst_mint.copy_from_slice(mint.as_ref());
     dst_treasury.copy_from_slice(treasury.as_ref());
     *dst_reserve = reserve.to_le_bytes();

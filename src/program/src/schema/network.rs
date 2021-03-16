@@ -5,15 +5,14 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-const MAX_POOLS: usize = 32;
+pub const MAX_MINTS: usize = 32;
 
 ///
 /// Network struct
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
-  pub owner: Pubkey,
-  pub pools: [Pubkey; MAX_POOLS],
+  pub mints: [Pubkey; MAX_MINTS],
   pub is_initialized: bool,
 }
 
@@ -21,11 +20,17 @@ pub struct Network {
 /// Network implementation
 ///
 impl Network {
-  pub fn is_approved(pool: &Pubkey) -> bool {
-    if *pool == Pubkey::new(&[0u8; 32]) {
+  // The mint is legally included in network
+  pub fn is_approved(&self, mint: &Pubkey) -> bool {
+    if *mint == Pubkey::new(&[0u8; 32]) {
       return false;
     }
-    true
+    for m in self.mints.iter() {
+      if *m == *mint {
+        return true;
+      }
+    }
+    false
   }
 }
 
@@ -48,38 +53,34 @@ impl IsInitialized for Network {
 ///
 impl Pack for Network {
   // Fixed length
-  const LEN: usize = 32 + 32 * MAX_POOLS + 1;
+  const LEN: usize = 32 * MAX_MINTS + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 1057];
-    let (owner, pools_flat, is_initialized) = array_refs![src, 32, 32 * MAX_POOLS, 1];
+    let src = array_ref![src, 0, 1025];
+    let (mints_flat, is_initialized) = array_refs![src, 32 * MAX_MINTS, 1];
     let mut network = Network {
-      owner: Pubkey::new_from_array(*owner),
-      pools: [Pubkey::new_from_array([0u8; 32]); MAX_POOLS],
+      mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
       is_initialized: match is_initialized {
         [0] => false,
         [1] => true,
         _ => return Err(ProgramError::InvalidAccountData),
       },
     };
-    for (src, dst) in pools_flat.chunks(32).zip(network.pools.iter_mut()) {
+    for (src, dst) in mints_flat.chunks(32).zip(network.mints.iter_mut()) {
       *dst = Pubkey::new(src);
     }
     Ok(network)
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 1057];
-    let (dst_owner, dst_pools_flat, dst_is_initialized) =
-      mut_array_refs![dst, 32, 32 * MAX_POOLS, 1];
+    let dst = array_mut_ref![dst, 0, 1025];
+    let (dst_mints_flat, dst_is_initialized) = mut_array_refs![dst, 32 * MAX_MINTS, 1];
     let &Network {
-      ref owner,
-      ref pools,
+      ref mints,
       is_initialized,
     } = self;
-    dst_owner.copy_from_slice(owner.as_ref());
-    for (i, src) in pools.iter().enumerate() {
-      let dst_array = array_mut_ref![dst_pools_flat, 32 * i, 32];
+    for (i, src) in mints.iter().enumerate() {
+      let dst_array = array_mut_ref![dst_mints_flat, 32 * i, 32];
       dst_array.copy_from_slice(src.as_ref());
     }
     *dst_is_initialized = [is_initialized as u8];

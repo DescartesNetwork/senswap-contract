@@ -4,6 +4,7 @@ use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
+  InitializeNetwork,
   InitializePool { reserve: u64, lpt: u128 },
   InitializeLPT,
   AddLiquidity { reserve: u64 },
@@ -19,7 +20,8 @@ impl AppInstruction {
       .split_first()
       .ok_or(AppError::InvalidInstruction)?;
     Ok(match tag {
-      0 => {
+      0 => Self::InitializeNetwork,
+      1 => {
         let reserve = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -32,8 +34,8 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::InitializePool { reserve, lpt }
       }
-      1 => Self::InitializeLPT,
-      2 => {
+      2 => Self::InitializeLPT,
+      3 => {
         let reserve = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -41,7 +43,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::AddLiquidity { reserve }
       }
-      3 => {
+      4 => {
         let lpt = rest
           .get(..16)
           .and_then(|slice| slice.try_into().ok())
@@ -49,7 +51,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { lpt }
       }
-      4 => {
+      5 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -57,7 +59,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Swap { amount }
       }
-      5 => {
+      6 => {
         let lpt = rest
           .get(..16)
           .and_then(|slice| slice.try_into().ok())
@@ -65,8 +67,8 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Transfer { lpt }
       }
-      6 => Self::CloseLPT,
-      7 => Self::ClosePool,
+      7 => Self::CloseLPT,
+      8 => Self::ClosePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
