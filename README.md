@@ -56,7 +56,7 @@ Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst
 - [ ] amount != 0
 - [ ] if bid_pool_acc == ask_pool_acc { Return }
 
-Transfer: `[owner, src_lpt, dst_lpt]`
+Transfer: `(lpt) [owner, src_lpt, dst_lpt]`
 
 - [ ] src_lpt_acc.owner == dst_lpt_acc.owner == program_id
 - [ ] src_lpt_data.is_initialized
@@ -65,6 +65,8 @@ Transfer: `[owner, src_lpt, dst_lpt]`
 - [ ] src_lpt_data.owner == owner
 - [ ] src_lpt_data.pool == dst_lpt_data.pool
 - [ ] if src_lpt_acc == dst_lpt_acc { Return }
+- [ ] lpt != 0
+- [ ] lpt <= src_lpt_data.lpt
 
 Close LPT: `[owner, lpt, dst]`
 
@@ -80,4 +82,5 @@ Close Pool: `[owner, pool, treasury, dst, treasurer, splt]`
 - [ ] owner.is_signer
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
 - [ ] pool_data.owner == owner
+- [ ] pool_data.treasury == treasury_acc
 - [ ] pool_data.lpt == 0 && pool_data.reserve == 0
