@@ -1,8 +1,8 @@
 use crate::error::AppError;
-use crate::helper::oracle::Oracle;
+use crate::helper::curve::Curve;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
-use crate::schema::{account::Account, lpt::LPT, pool::Pool};
+use crate::schema::{lpt::LPT, pool::Pool};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -14,8 +14,10 @@ use solana_program::{
 
 ///
 /// fee = 2500000/1000000000 = 0.25%
+/// earn = 500000/1000000000 = 0.05%
 ///
 const FEE: u64 = 2500000;
+const EARN: u64 = 500000;
 const FEE_DECIMALS: u64 = 1000000000;
 
 pub struct Processor {}
@@ -332,7 +334,7 @@ impl Processor {
           .reserve
           .checked_add(amount)
           .ok_or(AppError::Overflow)?;
-        let new_ask_reserve_without_fee = Oracle::curve(
+        let new_ask_reserve_without_fee = Curve::curve(
           new_bid_reserve,
           bid_pool_data.reserve,
           bid_pool_data.lpt,
@@ -340,20 +342,11 @@ impl Processor {
           ask_pool_data.lpt,
         )
         .ok_or(AppError::Overflow)?;
-        let paid_amount_without_fee = ask_pool_data
-          .reserve
-          .checked_sub(new_ask_reserve_without_fee)
-          .ok_or(AppError::Overflow)?;
+
         // Apply fee
-        let paid_amount_with_fee = ((FEE_DECIMALS - ask_pool_data.fee) as u128)
-          .checked_mul(paid_amount_without_fee as u128)
-          .ok_or(AppError::Overflow)?
-          .checked_div(FEE_DECIMALS as u128)
-          .ok_or(AppError::Overflow)? as u64;
-        let new_ask_reserve_with_fee = ask_pool_data
-          .reserve
-          .checked_sub(paid_amount_with_fee)
-          .ok_or(AppError::Overflow)?;
+        let (new_ask_reserve, paid_amount) =
+          Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve)
+            .ok_or(AppError::Overflow)?;
 
         // Transfer bid
         let ix_transfer = ISPLT::transfer(
@@ -376,10 +369,10 @@ impl Processor {
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
         // Transfer ask
-        ask_pool_data.reserve = new_ask_reserve_with_fee;
+        ask_pool_data.reserve = new_ask_reserve;
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
         let ix_transfer = ISPLT::transfer(
-          paid_amount_with_fee,
+          paid_amount,
           *ask_treasury_acc.key,
           *dst_acc.key,
           *ask_treasurer.key,
@@ -522,5 +515,24 @@ impl Processor {
         Ok(())
       }
     }
+  }
+
+  fn apply_fee(new_ask_reserve: u64, ask_reserve: u64) -> Option<(u64, u64)> {
+    let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve)?;
+    let fee = (paid_amount_without_fee as u128)
+      .checked_mul(FEE as u128)?
+      .checked_div(FEE_DECIMALS as u128)? as u64;
+    let earn = (paid_amount_without_fee as u128)
+      .checked_mul(EARN as u128)?
+      .checked_div(FEE_DECIMALS as u128)? as u64;
+
+    // Swap earn to SEN then transfer to foundation wallet
+    // Core here
+
+    let new_ask_reserve_with_fee = new_ask_reserve.checked_add(fee)?;
+    let paid_amount_with_fee = paid_amount_without_fee
+      .checked_sub(fee)?
+      .checked_sub(earn)?;
+    Some((new_ask_reserve_with_fee, paid_amount_with_fee))
   }
 }

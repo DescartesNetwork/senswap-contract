@@ -5,9 +5,9 @@ use num_traits::cast::ToPrimitive;
 const PRECISION: u128 = 1000000000000000000; // 10**18
 const DOUBLE_PRECISION: u128 = 1000000000000000000000000000000000000; // 10**36
 
-pub struct Oracle {}
+pub struct Curve {}
 
-impl Oracle {
+impl Curve {
   ///
   /// alpha = bid_reserve / new_bid_reserve
   ///
@@ -77,5 +77,25 @@ impl Oracle {
     let new_ask_reserve = (nar / pcs).to_u64()?;
 
     Some(new_ask_reserve)
+  }
+
+  pub fn curve_in_fee(
+    new_bid_reserve: u64,
+    bid_reserve: u64,
+    bid_lpt: u128,
+    ask_reserve: u64,
+    ask_lpt: u128,
+    fee: u64,
+    fee_decimals: u64,
+  ) -> Option<u64> {
+    let new_ask_reserve_without_fee =
+      Self::curve(new_bid_reserve, bid_reserve, bid_lpt, ask_reserve, ask_lpt)?;
+    let paid_amount_without_fee = ask_reserve - new_ask_reserve_without_fee;
+    let paid_fee = (paid_amount_without_fee as u128)
+      .checked_mul(fee as u128)?
+      .checked_div(fee_decimals as u128)? as u64;
+    let new_ask_reserve_with_fee = ask_reserve.checked_add(paid_fee)? as u64;
+
+    Some(new_ask_reserve_with_fee)
   }
 }
