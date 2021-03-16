@@ -194,11 +194,11 @@ impl Processor {
         )?;
 
         // Compute corresponding paid-back lpt
-        let paid_lpt = (pool_data.lpt as u128)
+        let paid_lpt = (pool_data.lpt)
           .checked_mul(reserve as u128)
           .ok_or(AppError::Overflow)?
           .checked_div(pool_data.reserve as u128)
-          .ok_or(AppError::Overflow)? as u64;
+          .ok_or(AppError::Overflow)?;
 
         // Update pool
         pool_data.reserve = pool_data
@@ -253,9 +253,9 @@ impl Processor {
 
         // Compute corresponding paid-back reserve
         let paid_reserve = (pool_data.reserve as u128)
-          .checked_mul(lpt as u128)
+          .checked_mul(lpt)
           .ok_or(AppError::Overflow)?
-          .checked_div(pool_data.lpt as u128)
+          .checked_div(pool_data.lpt)
           .ok_or(AppError::Overflow)? as u64;
 
         // Update lpt data
