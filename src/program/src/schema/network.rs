@@ -5,7 +5,7 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-pub const MAX_MINTS: usize = 32;
+const MAX_MINTS: usize = 32;
 
 ///
 /// Network struct
@@ -20,6 +20,17 @@ pub struct Network {
 /// Network implementation
 ///
 impl Network {
+  // Maximum number of mints
+  pub fn max_mints() -> usize {
+    MAX_MINTS
+  }
+  // SEN mint
+  pub fn primary() -> Pubkey {
+    Pubkey::new(&vec![
+      6, 146, 62, 15, 156, 89, 100, 148, 128, 63, 205, 123, 17, 217, 197, 247, 71, 51, 244, 234,
+      34, 219, 64, 48, 85, 80, 74, 156, 0, 65, 121, 184,
+    ])
+  }
   // The mint is legally included in network
   pub fn is_approved(&self, mint: &Pubkey) -> bool {
     if *mint == Pubkey::new(&[0u8; 32]) {

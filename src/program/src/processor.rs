@@ -2,11 +2,7 @@ use crate::error::AppError;
 use crate::helper::curve::Curve;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
-use crate::schema::{
-  lpt::LPT,
-  network::{Network, MAX_MINTS},
-  pool::Pool,
-};
+use crate::schema::{lpt::LPT, network::Network, pool::Pool};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -51,8 +47,10 @@ impl Processor {
         }
 
         network_data.is_initialized = true;
-        for i in 0..MAX_MINTS {
-          network_data.mints[i] = *network_acc.key;
+        network_data.mints[0] = Network::primary();
+        for i in 1..Network::max_mints() {
+          let mint_acc = next_account_info(accounts_iter)?;
+          network_data.mints[i] = *mint_acc.key;
         }
         Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
 
