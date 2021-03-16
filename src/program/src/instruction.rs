@@ -11,6 +11,7 @@ pub enum AppInstruction {
   Swap { amount: u64 },
   Transfer { lpt: u128 },
   CloseLPT,
+  ClosePool,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -65,6 +66,7 @@ impl AppInstruction {
         Self::Transfer { lpt }
       }
       6 => Self::CloseLPT,
+      7 => Self::ClosePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
