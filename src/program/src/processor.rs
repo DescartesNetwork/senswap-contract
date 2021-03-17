@@ -462,6 +462,7 @@ impl Processor {
             splt_program.clone(),
           ],
         )?;
+        // Update bid pool data
         bid_pool_data.reserve = new_bid_reserve;
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
@@ -471,11 +472,13 @@ impl Processor {
           Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve, exempt)
             .ok_or(AppError::Overflow)?;
 
-        // Transfer ask
+        // Update ask pool data (Including swap ask_token to SEN)
+        // new_ask_reserve_without_fee + fee + earning = new_ask_reserve_with_fee + earning
         let new_ask_reserve = new_ask_reserve_with_fee
           .checked_add(earning)
           .ok_or(AppError::Overflow)?;
         ask_pool_data.reserve = new_ask_reserve;
+        // Transfer ask
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
         let ix_transfer = ISPLT::transfer(
           paid_amount,
@@ -499,8 +502,8 @@ impl Processor {
         if earning != 0 {
           // Swap earning to SEN
           let new_sen_reserve = Curve::curve(
-            new_ask_reserve,
-            new_ask_reserve_with_fee,
+            new_ask_reserve, // with earning
+            new_ask_reserve_with_fee, // without earning
             ask_pool_data.lpt,
             sen_pool_data.reserve,
             sen_pool_data.lpt,

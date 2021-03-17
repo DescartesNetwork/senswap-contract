@@ -44,7 +44,7 @@ Add Liquidity: `(reserve) [owner, pool, treasury, lpt, src, splt]`
 
 Remove Liquidity: `(lpt) [owner, pool, treasury, lpt, dst, treasurer, splt]`
 
-- [ ] pool_acc.owner ==  lpt_acc.owner == program_id
+- [ ] pool_acc.owner == lpt_acc.owner == program_id
 - [ ] pool_data.is_initialized
 - [ ] lpt_data.is_initialized
 - [ ] owner.is_signer
@@ -57,7 +57,8 @@ Remove Liquidity: `(lpt) [owner, pool, treasury, lpt, dst, treasurer, splt]`
 
 Swap: `(amount) [owner, network, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst, ask_treasurer, sen_pool, sen_treasury, vault, sen_treasurer, splt]`
 
-- [ ] bid_pool_acc.owner == ask_pool_acc.owner == sen_pool_acc.owner ==program_id
+- [ ] bid_pool_acc.owner == ask_pool_acc.owner == sen_pool_acc.owner == program_id
+- [ ] network_data.is_initialized
 - [ ] bid_pool_data.is_initialized
 - [ ] ask_pool_data.is_initialized
 - [ ] sen_pool_data.is_initialized
