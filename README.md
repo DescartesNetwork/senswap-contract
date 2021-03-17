@@ -2,11 +2,12 @@
 
 ## Validation checklist
 
-Initialize Network: `[owner, network, mint x 31]`
+Initialize Network: `[owner, network, primary_token, vault, splt, sysvar_rent, mint x 31]`
 - [ ] network_acc.owner == program_id
 - [ ] !network_data.is_initialized
 - [ ] owner.is_signer
 - [ ] network_acc.is_signer
+- [ ] vault_acc.is_signer
 
 Initialize Pool: `(reserve, lpt) [owner, network, pool, treasury, lpt, src, mint, treasurer, splt, sysvar_rent]`
 
@@ -54,7 +55,7 @@ Remove Liquidity: `(lpt) [owner, pool, treasury, lpt, dst, treasurer, splt]`
 - [ ] lpt != 0
 - [ ] lpt <= lpt_data.lpt
 
-Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst, ask_treasurer, sen_pool, sen_treasury, vault, sen_treasurer, splt]`
+Swap: `(amount) [owner, network, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst, ask_treasurer, sen_pool, sen_treasury, vault, sen_treasurer, splt]`
 
 - [ ] bid_pool_acc.owner == ask_pool_acc.owner == sen_pool_acc.owner ==program_id
 - [ ] bid_pool_data.is_initialized
@@ -66,7 +67,7 @@ Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst
 - [ ] sen_pool_data.treasury = sen_treasury_acc
 - [ ] program_address(seed(ask_pool_acc), program_id) == ask_treasurer
 - [ ] program_address(seed(sen_pool_acc), program_id) == sen_treasurer
-- [ ] bid_pool_data.network = ask_pool_data.network = sen_pool_data.network
+- [ ] network_acc = bid_pool_data.network = ask_pool_data.network = sen_pool_data.network
 - [ ] amount != 0
 - [ ] if bid_pool_acc == ask_pool_acc { Return }
 

@@ -29,6 +29,9 @@ impl Default for NetworkState {
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
+  pub owner: Pubkey,         // Must be multisig
+  pub primary_token: Pubkey, // Must be SEN
+  pub vault: Pubkey,         // A SEN account
   pub mints: [Pubkey; MAX_MINTS],
   pub state: NetworkState,
 }
@@ -40,20 +43,6 @@ impl Network {
   // Maximum number of mints
   pub fn max_mints() -> usize {
     MAX_MINTS
-  }
-  // SEN mint
-  pub fn primary() -> Pubkey {
-    Pubkey::new(&vec![
-      6, 146, 62, 15, 156, 89, 100, 148, 128, 63, 205, 123, 17, 217, 197, 247, 71, 51, 244, 234,
-      34, 219, 64, 48, 85, 80, 74, 156, 0, 65, 121, 184,
-    ])
-  }
-  // Sen Vault
-  pub fn vault() -> Pubkey {
-    Pubkey::new(&vec![
-      6, 146, 62, 15, 156, 89, 100, 148, 128, 63, 205, 123, 17, 217, 197, 247, 71, 51, 244, 234,
-      34, 219, 64, 48, 85, 80, 74, 156, 0, 65, 121, 184,
-    ])
   }
   // Check legal to swap
   pub fn is_activated(&self) -> bool {
@@ -92,12 +81,16 @@ impl IsInitialized for Network {
 ///
 impl Pack for Network {
   // Fixed length
-  const LEN: usize = 32 * MAX_MINTS + 1;
+  const LEN: usize = 32 + 32 + 32 + 32 * MAX_MINTS + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 1025];
-    let (mints_flat, state) = array_refs![src, 32 * MAX_MINTS, 1];
+    let src = array_ref![src, 0, 1121];
+    let (owner, primary_token, vault, mints_flat, state) =
+      array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
     let mut network = Network {
+      owner: Pubkey::new_from_array(*owner),
+      primary_token: Pubkey::new_from_array(*primary_token),
+      vault: Pubkey::new_from_array(*vault),
       mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
       state: NetworkState::try_from_primitive(state[0])
         .or(Err(ProgramError::InvalidAccountData))?,
@@ -109,9 +102,19 @@ impl Pack for Network {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 1025];
-    let (dst_mints_flat, dst_state) = mut_array_refs![dst, 32 * MAX_MINTS, 1];
-    let &Network { ref mints, state } = self;
+    let dst = array_mut_ref![dst, 0, 1121];
+    let (dst_owner, dst_primary_token, dst_vault, dst_mints_flat, dst_state) =
+      mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
+    let &Network {
+      ref owner,
+      ref primary_token,
+      ref vault,
+      ref mints,
+      state,
+    } = self;
+    dst_owner.copy_from_slice(owner.as_ref());
+    dst_primary_token.copy_from_slice(primary_token.as_ref());
+    dst_vault.copy_from_slice(vault.as_ref());
     for (i, src) in mints.iter().enumerate() {
       let dst_array = array_mut_ref![dst_mints_flat, 32 * i, 32];
       dst_array.copy_from_slice(src.as_ref());

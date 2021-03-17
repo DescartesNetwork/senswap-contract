@@ -4,8 +4,8 @@ pub struct Math {}
 
 impl Math {
   ///
-  /// Babylonian method (with a selectively initial guest)
-  /// Complexity is O(log(log(n)))
+  /// Babylonian method (with a selectively initial guesses)
+  /// O(log(log(n))) for complexity
   ///
   pub fn sqrt(m: BigUint) -> BigUint {
     if m < BigUint::from(2u128) {

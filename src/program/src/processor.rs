@@ -37,7 +37,12 @@ impl Processor {
       AppInstruction::InitializeNetwork {} => {
         info!("Calling InitializeNetwork function");
         let accounts_iter = &mut accounts.iter();
+        let owner = next_account_info(accounts_iter)?;
         let network_acc = next_account_info(accounts_iter)?;
+        let primary_token_acc = next_account_info(accounts_iter)?;
+        let vault_acc = next_account_info(accounts_iter)?;
+        let splt_program = next_account_info(accounts_iter)?;
+        let sysvar_rent_acc = next_account_info(accounts_iter)?;
         if network_acc.owner != program_id {
           return Err(AppError::IncorrectProgramId.into());
         }
@@ -46,16 +51,38 @@ impl Processor {
         if network_data.is_initialized() {
           return Err(AppError::ConstructorOnce.into());
         }
-        if !network_acc.is_signer {
+        if !owner.is_signer || !network_acc.is_signer || !vault_acc.is_signer {
           return Err(AppError::InvalidOwner.into());
         }
 
-        network_data.state = NetworkState::Initialized;
-        network_data.mints[0] = Network::primary();
+        // Vault Constructor
+        let ix_initialize_account = ISPLT::initialize_account(
+          *vault_acc.key,
+          *primary_token_acc.key,
+          *owner.key,
+          *sysvar_rent_acc.key,
+          *splt_program.key,
+        )?;
+        invoke(
+          &ix_initialize_account,
+          &[
+            vault_acc.clone(),
+            primary_token_acc.clone(),
+            owner.clone(),
+            sysvar_rent_acc.clone(),
+            splt_program.clone(),
+          ],
+        )?;
+
+        network_data.owner = *owner.key;
+        network_data.primary_token = *primary_token_acc.key;
+        network_data.vault = *vault_acc.key;
+        network_data.mints[0] = *primary_token_acc.key;
         for i in 1..Network::max_mints() {
           let mint_acc = next_account_info(accounts_iter)?;
           network_data.mints[i] = *mint_acc.key;
         }
+        network_data.state = NetworkState::Initialized;
         Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
 
         Ok(())
@@ -99,10 +126,10 @@ impl Processor {
         if !network_data.is_approved(mint_acc.key) {
           return Err(AppError::UnmatchedPool.into());
         }
-        if *mint_acc.key != Network::primary() && !network_data.is_activated() {
+        if *mint_acc.key != network_data.primary_token && !network_data.is_activated() {
           return Err(AppError::NotInitialized.into());
         }
-        if *mint_acc.key == Network::primary() && network_data.is_activated() {
+        if *mint_acc.key == network_data.primary_token && network_data.is_activated() {
           return Err(AppError::ConstructorOnce.into());
         }
         if reserve == 0 || lpt == 0 {
@@ -148,7 +175,7 @@ impl Processor {
         )?;
 
         // Update network data
-        if *mint_acc.key == Network::primary() {
+        if *mint_acc.key == network_data.primary_token {
           network_data.state = NetworkState::Activated;
           Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
         }
@@ -350,6 +377,7 @@ impl Processor {
         info!("Calling Swap function");
         let accounts_iter = &mut accounts.iter();
         let owner = next_account_info(accounts_iter)?;
+        let network_acc = next_account_info(accounts_iter)?;
 
         let bid_pool_acc = next_account_info(accounts_iter)?;
         let bid_treasury_acc = next_account_info(accounts_iter)?;
@@ -373,6 +401,7 @@ impl Processor {
           return Err(AppError::IncorrectProgramId.into());
         }
 
+        let network_data = Network::unpack(&network_acc.data.borrow())?;
         let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
         let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
         let mut sen_pool_data = Pool::unpack(&sen_pool_acc.data.borrow())?;
@@ -389,8 +418,9 @@ impl Processor {
         {
           return Err(AppError::InvalidOwner.into());
         }
-        if sen_pool_data.network != bid_pool_data.network
-          || sen_pool_data.network != ask_pool_data.network
+        if sen_pool_data.network != *network_acc.key
+          || bid_pool_data.network != *network_acc.key
+          || ask_pool_data.network != *network_acc.key
         {
           return Err(AppError::IncorrectNetworkId.into());
         }
@@ -436,13 +466,10 @@ impl Processor {
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
         // Apply fee
-        let is_primary = ask_pool_data.mint == Network::primary();
-        let (new_ask_reserve_with_fee, paid_amount, _fee, earning) = Self::apply_fee(
-          new_ask_reserve_without_fee,
-          ask_pool_data.reserve,
-          is_primary,
-        )
-        .ok_or(AppError::Overflow)?;
+        let exempt = ask_pool_data.mint == network_data.primary_token;
+        let (new_ask_reserve_with_fee, paid_amount, _fee, earning) =
+          Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve, exempt)
+            .ok_or(AppError::Overflow)?;
 
         // Transfer ask
         let new_ask_reserve = new_ask_reserve_with_fee
@@ -636,7 +663,7 @@ impl Processor {
   fn apply_fee(
     new_ask_reserve: u64,
     ask_reserve: u64,
-    is_primary: bool,
+    exempt: bool,
   ) -> Option<(u64, u64, u64, u64)> {
     let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve)?;
     let fee = (paid_amount_without_fee as u128)
@@ -645,7 +672,7 @@ impl Processor {
     let mut earning = (paid_amount_without_fee as u128)
       .checked_mul(EARNING as u128)?
       .checked_div(DECIMALS as u128)? as u64;
-    if is_primary {
+    if exempt {
       earning = 0;
     }
     let new_ask_reserve_with_fee = new_ask_reserve.checked_add(fee)?;
