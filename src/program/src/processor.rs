@@ -2,7 +2,11 @@ use crate::error::AppError;
 use crate::helper::curve::Curve;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
-use crate::schema::{lpt::LPT, network::Network, pool::Pool};
+use crate::schema::{
+  lpt::LPT,
+  network::{Network, NetworkState},
+  pool::Pool,
+};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -46,7 +50,7 @@ impl Processor {
           return Err(AppError::InvalidOwner.into());
         }
 
-        network_data.is_initialized = true;
+        network_data.state = NetworkState::Initialized;
         network_data.mints[0] = Network::primary();
         for i in 1..Network::max_mints() {
           let mint_acc = next_account_info(accounts_iter)?;
@@ -77,7 +81,7 @@ impl Processor {
           return Err(AppError::IncorrectProgramId.into());
         }
 
-        let network_data = Network::unpack(&network_acc.data.borrow())?;
+        let mut network_data = Network::unpack(&network_acc.data.borrow())?;
         let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
         let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
         if pool_data.is_initialized() || lpt_data.is_initialized() {
@@ -94,6 +98,12 @@ impl Processor {
         }
         if !network_data.is_approved(mint_acc.key) {
           return Err(AppError::UnmatchedPool.into());
+        }
+        if *mint_acc.key != Network::primary() && !network_data.is_activated() {
+          return Err(AppError::NotInitialized.into());
+        }
+        if *mint_acc.key == Network::primary() && network_data.is_activated() {
+          return Err(AppError::ConstructorOnce.into());
         }
         if reserve == 0 || lpt == 0 {
           return Err(AppError::ZeroValue.into());
@@ -137,7 +147,12 @@ impl Processor {
           ],
         )?;
 
-        // Add pool data
+        // Update network data
+        if *mint_acc.key == Network::primary() {
+          network_data.state = NetworkState::Activated;
+          Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
+        }
+        // Update pool data
         pool_data.owner = *owner.key;
         pool_data.network = *network_acc.key;
         pool_data.mint = *mint_acc.key;
@@ -147,7 +162,7 @@ impl Processor {
         pool_data.fee = FEE;
         pool_data.is_initialized = true;
         Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-        // Add lpt data
+        // Update lpt data
         lpt_data.owner = *owner.key;
         lpt_data.pool = *pool_acc.key;
         lpt_data.lpt = lpt;
@@ -335,30 +350,48 @@ impl Processor {
         info!("Calling Swap function");
         let accounts_iter = &mut accounts.iter();
         let owner = next_account_info(accounts_iter)?;
+
         let bid_pool_acc = next_account_info(accounts_iter)?;
         let bid_treasury_acc = next_account_info(accounts_iter)?;
         let src_acc = next_account_info(accounts_iter)?;
+
         let ask_pool_acc = next_account_info(accounts_iter)?;
         let ask_treasury_acc = next_account_info(accounts_iter)?;
         let dst_acc = next_account_info(accounts_iter)?;
         let ask_treasurer = next_account_info(accounts_iter)?;
+
+        let sen_pool_acc = next_account_info(accounts_iter)?;
+        let sen_treasury_acc = next_account_info(accounts_iter)?;
+        let vault_acc = next_account_info(accounts_iter)?;
+        let sen_treasurer = next_account_info(accounts_iter)?;
+
         let splt_program = next_account_info(accounts_iter)?;
-        if bid_pool_acc.owner != program_id || ask_pool_acc.owner != program_id {
+        if bid_pool_acc.owner != program_id
+          || ask_pool_acc.owner != program_id
+          || sen_pool_acc.owner != program_id
+        {
           return Err(AppError::IncorrectProgramId.into());
         }
 
         let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
         let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
-        let seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
-        let ask_treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+        let mut sen_pool_data = Pool::unpack(&sen_pool_acc.data.borrow())?;
+        let ask_seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
+        let ask_treasurer_key = Pubkey::create_program_address(&ask_seed, program_id)?;
+        let sen_seed: &[&[_]] = &[&sen_pool_acc.key.to_bytes()[..]];
+        let sen_treasurer_key = Pubkey::create_program_address(&sen_seed, program_id)?;
         if !owner.is_signer
           || bid_pool_data.treasury != *bid_treasury_acc.key
           || ask_pool_data.treasury != *ask_treasury_acc.key
           || ask_treasurer_key != *ask_treasurer.key
+          || sen_pool_data.treasury != *sen_treasury_acc.key
+          || sen_treasurer_key != *sen_treasurer.key
         {
           return Err(AppError::InvalidOwner.into());
         }
-        if bid_pool_data.network != ask_pool_data.network {
+        if sen_pool_data.network != bid_pool_data.network
+          || sen_pool_data.network != ask_pool_data.network
+        {
           return Err(AppError::IncorrectNetworkId.into());
         }
         if amount == 0 {
@@ -382,11 +415,6 @@ impl Processor {
         )
         .ok_or(AppError::Overflow)?;
 
-        // Apply fee
-        let (new_ask_reserve, paid_amount) =
-          Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve)
-            .ok_or(AppError::Overflow)?;
-
         // Transfer bid
         let ix_transfer = ISPLT::transfer(
           amount,
@@ -407,7 +435,19 @@ impl Processor {
         bid_pool_data.reserve = new_bid_reserve;
         Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
+        // Apply fee
+        let is_primary = ask_pool_data.mint == Network::primary();
+        let (new_ask_reserve_with_fee, paid_amount, _, earn) = Self::apply_fee(
+          new_ask_reserve_without_fee,
+          ask_pool_data.reserve,
+          is_primary,
+        )
+        .ok_or(AppError::Overflow)?;
+
         // Transfer ask
+        let new_ask_reserve = new_ask_reserve_with_fee
+          .checked_add(earn)
+          .ok_or(AppError::Overflow)?;
         ask_pool_data.reserve = new_ask_reserve;
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
         let ix_transfer = ISPLT::transfer(
@@ -425,8 +465,42 @@ impl Processor {
             ask_treasurer.clone(),
             splt_program.clone(),
           ],
-          &[&seed],
+          &[&ask_seed],
         )?;
+
+        // Transfer earn
+        if earn != 0 {
+          let earn_in_sen = Curve::curve(
+            new_ask_reserve,
+            new_ask_reserve_with_fee,
+            ask_pool_data.lpt,
+            sen_pool_data.reserve,
+            sen_pool_data.lpt,
+          )
+          .ok_or(AppError::Overflow)?;
+          sen_pool_data.reserve = sen_pool_data
+            .reserve
+            .checked_sub(earn_in_sen)
+            .ok_or(AppError::Overflow)?;
+          Pool::pack(sen_pool_data, &mut sen_pool_acc.data.borrow_mut())?;
+          let ix_transfer = ISPLT::transfer(
+            earn_in_sen,
+            *sen_treasury_acc.key,
+            *vault_acc.key,
+            *sen_treasurer.key,
+            *splt_program.key,
+          )?;
+          invoke_signed(
+            &ix_transfer,
+            &[
+              sen_treasury_acc.clone(),
+              vault_acc.clone(),
+              sen_treasurer.clone(),
+              splt_program.clone(),
+            ],
+            &[&sen_seed],
+          )?;
+        }
 
         Ok(())
       }
@@ -556,22 +630,25 @@ impl Processor {
     }
   }
 
-  fn apply_fee(new_ask_reserve: u64, ask_reserve: u64) -> Option<(u64, u64)> {
+  fn apply_fee(
+    new_ask_reserve: u64,
+    ask_reserve: u64,
+    is_primary: bool,
+  ) -> Option<(u64, u64, u64, u64)> {
     let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve)?;
     let fee = (paid_amount_without_fee as u128)
       .checked_mul(FEE as u128)?
       .checked_div(FEE_DECIMALS as u128)? as u64;
-    let earn = (paid_amount_without_fee as u128)
+    let mut earn = (paid_amount_without_fee as u128)
       .checked_mul(EARN as u128)?
       .checked_div(FEE_DECIMALS as u128)? as u64;
-
-    // Swap earn to SEN then transfer to foundation wallet
-    // Core here
-
+    if is_primary {
+      earn = 0;
+    }
     let new_ask_reserve_with_fee = new_ask_reserve.checked_add(fee)?;
     let paid_amount_with_fee = paid_amount_without_fee
       .checked_sub(fee)?
       .checked_sub(earn)?;
-    Some((new_ask_reserve_with_fee, paid_amount_with_fee))
+    Some((new_ask_reserve_with_fee, paid_amount_with_fee, fee, earn))
   }
 }

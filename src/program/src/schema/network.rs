@@ -1,4 +1,5 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
+use num_enum::TryFromPrimitive;
 use solana_program::{
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
@@ -8,12 +9,28 @@ use solana_program::{
 const MAX_MINTS: usize = 32;
 
 ///
+/// Network state
+///
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, TryFromPrimitive)]
+pub enum NetworkState {
+  Uninitialized,
+  Initialized,
+  Activated,
+}
+impl Default for NetworkState {
+  fn default() -> Self {
+    NetworkState::Uninitialized
+  }
+}
+
+///
 /// Network struct
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
   pub mints: [Pubkey; MAX_MINTS],
-  pub is_initialized: bool,
+  pub state: NetworkState,
 }
 
 ///
@@ -30,6 +47,17 @@ impl Network {
       6, 146, 62, 15, 156, 89, 100, 148, 128, 63, 205, 123, 17, 217, 197, 247, 71, 51, 244, 234,
       34, 219, 64, 48, 85, 80, 74, 156, 0, 65, 121, 184,
     ])
+  }
+  // Sen Vault
+  pub fn vault() -> Pubkey {
+    Pubkey::new(&vec![
+      6, 146, 62, 15, 156, 89, 100, 148, 128, 63, 205, 123, 17, 217, 197, 247, 71, 51, 244, 234,
+      34, 219, 64, 48, 85, 80, 74, 156, 0, 65, 121, 184,
+    ])
+  }
+  // Check legal to swap
+  pub fn is_activated(&self) -> bool {
+    self.state == NetworkState::Activated
   }
   // The mint is legally included in network
   pub fn is_approved(&self, mint: &Pubkey) -> bool {
@@ -55,7 +83,7 @@ impl Sealed for Network {}
 ///
 impl IsInitialized for Network {
   fn is_initialized(&self) -> bool {
-    self.is_initialized
+    self.state != NetworkState::Uninitialized
   }
 }
 
@@ -68,14 +96,11 @@ impl Pack for Network {
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, 1025];
-    let (mints_flat, is_initialized) = array_refs![src, 32 * MAX_MINTS, 1];
+    let (mints_flat, state) = array_refs![src, 32 * MAX_MINTS, 1];
     let mut network = Network {
       mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
-      is_initialized: match is_initialized {
-        [0] => false,
-        [1] => true,
-        _ => return Err(ProgramError::InvalidAccountData),
-      },
+      state: NetworkState::try_from_primitive(state[0])
+        .or(Err(ProgramError::InvalidAccountData))?,
     };
     for (src, dst) in mints_flat.chunks(32).zip(network.mints.iter_mut()) {
       *dst = Pubkey::new(src);
@@ -85,15 +110,12 @@ impl Pack for Network {
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     let dst = array_mut_ref![dst, 0, 1025];
-    let (dst_mints_flat, dst_is_initialized) = mut_array_refs![dst, 32 * MAX_MINTS, 1];
-    let &Network {
-      ref mints,
-      is_initialized,
-    } = self;
+    let (dst_mints_flat, dst_state) = mut_array_refs![dst, 32 * MAX_MINTS, 1];
+    let &Network { ref mints, state } = self;
     for (i, src) in mints.iter().enumerate() {
       let dst_array = array_mut_ref![dst_mints_flat, 32 * i, 32];
       dst_array.copy_from_slice(src.as_ref());
     }
-    *dst_is_initialized = [is_initialized as u8];
+    *dst_state = [state as u8];
   }
 }
