@@ -21,8 +21,8 @@ use solana_program::{
 /// earn = 500000/1000000000 = 0.05%
 ///
 const FEE: u64 = 2500000;
-const EARN: u64 = 500000;
-const FEE_DECIMALS: u64 = 1000000000;
+const EARNING: u64 = 500000;
+const DECIMALS: u64 = 1000000000;
 
 pub struct Processor {}
 
@@ -437,7 +437,7 @@ impl Processor {
 
         // Apply fee
         let is_primary = ask_pool_data.mint == Network::primary();
-        let (new_ask_reserve_with_fee, paid_amount, _, earn) = Self::apply_fee(
+        let (new_ask_reserve_with_fee, paid_amount, _fee, earning) = Self::apply_fee(
           new_ask_reserve_without_fee,
           ask_pool_data.reserve,
           is_primary,
@@ -446,7 +446,7 @@ impl Processor {
 
         // Transfer ask
         let new_ask_reserve = new_ask_reserve_with_fee
-          .checked_add(earn)
+          .checked_add(earning)
           .ok_or(AppError::Overflow)?;
         ask_pool_data.reserve = new_ask_reserve;
         Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
@@ -468,9 +468,10 @@ impl Processor {
           &[&ask_seed],
         )?;
 
-        // Transfer earn
-        if earn != 0 {
-          let earn_in_sen = Curve::curve(
+        // Execute earning
+        if earning != 0 {
+          // Swap earning to SEN
+          let new_sen_reserve = Curve::curve(
             new_ask_reserve,
             new_ask_reserve_with_fee,
             ask_pool_data.lpt,
@@ -478,13 +479,15 @@ impl Processor {
             sen_pool_data.lpt,
           )
           .ok_or(AppError::Overflow)?;
-          sen_pool_data.reserve = sen_pool_data
+          let earning_in_sen = sen_pool_data
             .reserve
-            .checked_sub(earn_in_sen)
+            .checked_sub(new_ask_reserve)
             .ok_or(AppError::Overflow)?;
+          sen_pool_data.reserve = new_sen_reserve;
           Pool::pack(sen_pool_data, &mut sen_pool_acc.data.borrow_mut())?;
+          // Transfer earning
           let ix_transfer = ISPLT::transfer(
-            earn_in_sen,
+            earning_in_sen,
             *sen_treasury_acc.key,
             *vault_acc.key,
             *sen_treasurer.key,
@@ -638,17 +641,17 @@ impl Processor {
     let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve)?;
     let fee = (paid_amount_without_fee as u128)
       .checked_mul(FEE as u128)?
-      .checked_div(FEE_DECIMALS as u128)? as u64;
-    let mut earn = (paid_amount_without_fee as u128)
-      .checked_mul(EARN as u128)?
-      .checked_div(FEE_DECIMALS as u128)? as u64;
+      .checked_div(DECIMALS as u128)? as u64;
+    let mut earning = (paid_amount_without_fee as u128)
+      .checked_mul(EARNING as u128)?
+      .checked_div(DECIMALS as u128)? as u64;
     if is_primary {
-      earn = 0;
+      earning = 0;
     }
     let new_ask_reserve_with_fee = new_ask_reserve.checked_add(fee)?;
     let paid_amount_with_fee = paid_amount_without_fee
       .checked_sub(fee)?
-      .checked_sub(earn)?;
-    Some((new_ask_reserve_with_fee, paid_amount_with_fee, fee, earn))
+      .checked_sub(earning)?;
+    Some((new_ask_reserve_with_fee, paid_amount_with_fee, fee, earning))
   }
 }

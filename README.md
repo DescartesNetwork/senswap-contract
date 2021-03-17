@@ -20,6 +20,7 @@ Initialize Pool: `(reserve, lpt) [owner, network, pool, treasury, lpt, src, mint
 - [ ] program_address(seed(pool_acc), program_id) == treasurer
 - [ ] network_data.is_approved(mint_acc)
 - [ ] if mint != sen { network_data.is_activated }
+- [ ] if mint == sen { !network_data.is_activated }
 - [ ] reserve != 0 && lpt != 0
 
 Initialized LPT: `[owner, pool, lpt]`
@@ -53,16 +54,19 @@ Remove Liquidity: `(lpt) [owner, pool, treasury, lpt, dst, treasurer, splt]`
 - [ ] lpt != 0
 - [ ] lpt <= lpt_data.lpt
 
-Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst, ask_treasurer, splt]`
+Swap: `(amount) [owner, bid_pool, bid_treasury, src, ask_pool, ask_treasury, dst, ask_treasurer, sen_pool, sen_treasury, vault, sen_treasurer, splt]`
 
-- [ ] bid_pool_acc.owner == ask_pool_acc.owner == program_id
+- [ ] bid_pool_acc.owner == ask_pool_acc.owner == sen_pool_acc.owner ==program_id
 - [ ] bid_pool_data.is_initialized
 - [ ] ask_pool_data.is_initialized
+- [ ] sen_pool_data.is_initialized
 - [ ] owner.is_signer
 - [ ] bid_pool_data.treasury = bid_treasury_acc
 - [ ] ask_pool_data.treasury = ask_treasury_acc
+- [ ] sen_pool_data.treasury = sen_treasury_acc
 - [ ] program_address(seed(ask_pool_acc), program_id) == ask_treasurer
-- [ ] bid_pool_data.network = ask_pool_data.network
+- [ ] program_address(seed(sen_pool_acc), program_id) == sen_treasurer
+- [ ] bid_pool_data.network = ask_pool_data.network = sen_pool_data.network
 - [ ] amount != 0
 - [ ] if bid_pool_acc == ask_pool_acc { Return }
 
