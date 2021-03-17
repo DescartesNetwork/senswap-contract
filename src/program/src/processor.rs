@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::helper::curve::Curve;
+use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
 use crate::schema::{
@@ -436,7 +436,7 @@ impl Processor {
           .reserve
           .checked_add(amount)
           .ok_or(AppError::Overflow)?;
-        let new_ask_reserve_without_fee = Curve::curve(
+        let new_ask_reserve_without_fee = Oracle::curve(
           new_bid_reserve,
           bid_pool_data.reserve,
           bid_pool_data.lpt,
@@ -501,7 +501,7 @@ impl Processor {
         // Execute earning
         if earning != 0 {
           // Swap earning to SEN
-          let new_sen_reserve = Curve::curve(
+          let new_sen_reserve = Oracle::curve(
             new_ask_reserve, // with earning
             new_ask_reserve_with_fee, // without earning
             ask_pool_data.lpt,

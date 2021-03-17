@@ -5,9 +5,9 @@ use num_traits::cast::ToPrimitive;
 const PRECISION: u128 = 1000000000000000000; // 10**18
 const DOUBLE_PRECISION: u128 = 1000000000000000000000000000000000000; // 10**36
 
-pub struct Curve {}
+pub struct Oracle {}
 
-impl Curve {
+impl Oracle {
   ///
   /// alpha = bid_reserve / new_bid_reserve
   ///
