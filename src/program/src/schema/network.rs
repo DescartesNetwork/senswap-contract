@@ -6,7 +6,7 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-const MAX_MINTS: usize = 32;
+pub const MAX_MINTS: usize = 11;
 
 ///
 /// Network state
@@ -40,10 +40,6 @@ pub struct Network {
 /// Network implementation
 ///
 impl Network {
-  // Maximum number of mints
-  pub fn max_mints() -> usize {
-    MAX_MINTS
-  }
   // Check legal to swap
   pub fn is_activated(&self) -> bool {
     self.state == NetworkState::Activated
@@ -84,7 +80,7 @@ impl Pack for Network {
   const LEN: usize = 32 + 32 + 32 + 32 * MAX_MINTS + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    let src = array_ref![src, 0, 1121];
+    let src = array_ref![src, 0, 449];
     let (owner, primary_token, vault, mints_flat, state) =
       array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
     let mut network = Network {
@@ -102,7 +98,7 @@ impl Pack for Network {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    let dst = array_mut_ref![dst, 0, 1121];
+    let dst = array_mut_ref![dst, 0, 449];
     let (dst_owner, dst_primary_token, dst_vault, dst_mints_flat, dst_state) =
       mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
     let &Network {

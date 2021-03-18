@@ -11,6 +11,11 @@ pub enum AppInstruction {
   RemoveLiquidity { lpt: u128 },
   Swap { amount: u64 },
   Transfer { lpt: u128 },
+  FreezePool,
+  ThawPool,
+  AddSigner,
+  ReplaceSigner,
+  RemoveSigner,
   CloseLPT,
   ClosePool,
 }
@@ -67,8 +72,13 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Transfer { lpt }
       }
-      7 => Self::CloseLPT,
-      8 => Self::ClosePool,
+      7 => Self::FreezePool,
+      8 => Self::ThawPool,
+      9 => Self::AddSigner,
+      10 => Self::ReplaceSigner,
+      11 => Self::RemoveSigner,
+      12 => Self::CloseLPT,
+      13 => Self::ClosePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

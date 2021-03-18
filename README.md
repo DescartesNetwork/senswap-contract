@@ -2,7 +2,7 @@
 
 ## Validation checklist
 
-Initialize Network: `[owner, network, primary_token, vault, splt, sysvar_rent, mint x 31]`
+Initialize Network: `[owner, network, primary_token, vault, splt, sysvar_rent, mint x 11]`
 - [ ] network_acc.owner == program_id
 - [ ] !network_data.is_initialized
 - [ ] owner.is_signer

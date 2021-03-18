@@ -29,6 +29,8 @@ pub enum AppError {
   Overflow,
   #[error("Pool unmatched")]
   UnmatchedPool,
+  #[error("Pool frozen")]
+  FrozenPool,
   #[error("Zero value")]
   ZeroValue,
   #[error("Insufficient funds")]
@@ -61,6 +63,7 @@ impl PrintProgramError for AppError {
       AppError::NotInitialized => info!("Error: Not yet initialized"),
       AppError::Overflow => info!("Error: Operation overflowed"),
       AppError::UnmatchedPool => info!("Error: Pool unmatched"),
+      AppError::FrozenPool => info!("Error: Pool frozen"),
       AppError::ZeroValue => info!("Error: Zero value"),
       AppError::InsufficientFunds => info!("Error: Insufficient funds"),
     }
