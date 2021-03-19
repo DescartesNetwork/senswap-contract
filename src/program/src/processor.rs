@@ -117,7 +117,7 @@ impl Processor {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
-    let primary_token_acc = next_account_info(accounts_iter)?;
+    let primary_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
     let dao_acc = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
@@ -138,7 +138,7 @@ impl Processor {
     // Vault Constructor
     let ix_initialize_account = ISPLT::initialize_account(
       *vault_acc.key,
-      *primary_token_acc.key,
+      *primary_acc.key,
       *owner.key,
       *sysvar_rent_acc.key,
       *splt_program.key,
@@ -147,7 +147,7 @@ impl Processor {
       &ix_initialize_account,
       &[
         vault_acc.clone(),
-        primary_token_acc.clone(),
+        primary_acc.clone(),
         owner.clone(),
         sysvar_rent_acc.clone(),
         splt_program.clone(),
@@ -164,9 +164,9 @@ impl Processor {
     DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
     // Update network data
     network_data.dao = *dao_acc.key;
-    network_data.primary = *primary_token_acc.key;
+    network_data.primary = *primary_acc.key;
     network_data.vault = *vault_acc.key;
-    network_data.mints[0] = *primary_token_acc.key;
+    network_data.mints[0] = *primary_acc.key;
     for i in 1..MAX_MINTS {
       let mint_acc = next_account_info(accounts_iter)?;
       network_data.mints[i] = *mint_acc.key;
