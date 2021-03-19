@@ -118,7 +118,7 @@ impl Processor {
   ///
   /// Controllers
   ///
-  fn intialize_network(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn intialize_network(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -142,7 +142,7 @@ impl Processor {
     if !owner.is_signer
       || !network_acc.is_signer
       || !vault_acc.is_signer
-      || treasurer_key == *treasurer.key
+      || treasurer_key != *treasurer.key
       || !dao_acc.is_signer
     {
       return Err(AppError::InvalidOwner.into());
@@ -169,9 +169,10 @@ impl Processor {
 
     // Update DAO data
     dao_data.signers[0] = *owner.key;
-    for j in 1..MAX_SIGNERS {
+    for i in 1..MAX_SIGNERS {
       let signer = next_account_info(accounts_iter)?;
-      dao_data.signers[j] = *signer.key;
+      dao_data.signers[i] = *signer.key;
+      info!(&signer.key.to_string());
     }
     dao_data.is_initialized = true;
     DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
@@ -180,9 +181,10 @@ impl Processor {
     network_data.primary = *primary_acc.key;
     network_data.vault = *vault_acc.key;
     network_data.mints[0] = *primary_acc.key;
-    for i in 1..MAX_MINTS {
+    for j in 1..MAX_MINTS {
       let mint_acc = next_account_info(accounts_iter)?;
-      network_data.mints[i] = *mint_acc.key;
+      network_data.mints[j] = *mint_acc.key;
+      info!(&mint_acc.key.to_string());
     }
     network_data.state = NetworkState::Initialized;
     Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
@@ -190,7 +192,7 @@ impl Processor {
     Ok(())
   }
 
-  fn initialize_pool(
+  pub fn initialize_pool(
     reserve: u64,
     lpt: u128,
     program_id: &Pubkey,
@@ -304,7 +306,7 @@ impl Processor {
     Ok(())
   }
 
-  fn initialize_lpt(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn initialize_lpt(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -330,7 +332,11 @@ impl Processor {
     Ok(())
   }
 
-  fn add_liquidity(reserve: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn add_liquidity(
+    reserve: u64,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+  ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -401,7 +407,11 @@ impl Processor {
     Ok(())
   }
 
-  fn remove_liquidity(lpt: u128, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn remove_liquidity(
+    lpt: u128,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+  ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -478,7 +488,7 @@ impl Processor {
     Ok(())
   }
 
-  fn swap(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn swap(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -645,7 +655,7 @@ impl Processor {
     Ok(())
   }
 
-  fn transfer(lpt: u128, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn transfer(lpt: u128, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -695,7 +705,7 @@ impl Processor {
     Ok(())
   }
 
-  fn freeze_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn freeze_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -724,7 +734,7 @@ impl Processor {
     Ok(())
   }
 
-  fn thaw_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn thaw_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -753,7 +763,7 @@ impl Processor {
     Ok(())
   }
 
-  fn add_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn add_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -780,7 +790,7 @@ impl Processor {
     Ok(())
   }
 
-  fn replace_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn replace_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -808,7 +818,7 @@ impl Processor {
     Ok(())
   }
 
-  fn remove_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn remove_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -835,7 +845,7 @@ impl Processor {
     Ok(())
   }
 
-  fn earn(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn earn(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let dao_acc = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -884,7 +894,7 @@ impl Processor {
     Ok(())
   }
 
-  fn close_lpt(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn close_lpt(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
@@ -910,7 +920,7 @@ impl Processor {
     Ok(())
   }
 
-  fn close_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn close_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -966,7 +976,7 @@ impl Processor {
   ///
   /// Utilities
   ///
-  fn multisig(dao_data: &DAO, signers: &[AccountInfo]) -> bool {
+  pub fn multisig(dao_data: &DAO, signers: &[AccountInfo]) -> bool {
     let mut num_signers = 0;
     let mut matched = [false; MAX_SIGNERS];
     for signer in signers {
@@ -989,7 +999,7 @@ impl Processor {
     false
   }
 
-  fn apply_fee(
+  pub fn apply_fee(
     new_ask_reserve: u64,
     ask_reserve: u64,
     exempt: bool,
