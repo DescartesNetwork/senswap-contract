@@ -163,8 +163,8 @@ impl Processor {
     dao_data.is_initialized = true;
     DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
     // Update network data
-    network_data.owner = *dao_acc.key;
-    network_data.primary_token = *primary_token_acc.key;
+    network_data.dao = *dao_acc.key;
+    network_data.primary = *primary_token_acc.key;
     network_data.vault = *vault_acc.key;
     network_data.mints[0] = *primary_token_acc.key;
     for i in 1..MAX_MINTS {
@@ -219,10 +219,10 @@ impl Processor {
     if !network_data.is_approved(mint_acc.key) {
       return Err(AppError::UnmatchedPool.into());
     }
-    if *mint_acc.key != network_data.primary_token && !network_data.is_activated() {
+    if *mint_acc.key != network_data.primary && !network_data.is_activated() {
       return Err(AppError::NotInitialized.into());
     }
-    if *mint_acc.key == network_data.primary_token && network_data.is_activated() {
+    if *mint_acc.key == network_data.primary && network_data.is_activated() {
       return Err(AppError::ConstructorOnce.into());
     }
     if reserve == 0 || lpt == 0 {
@@ -268,7 +268,7 @@ impl Processor {
     )?;
 
     // Update network data
-    if *mint_acc.key == network_data.primary_token {
+    if *mint_acc.key == network_data.primary {
       network_data.state = NetworkState::Activated;
       Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
     }
@@ -561,7 +561,7 @@ impl Processor {
     Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
     // Apply fee
-    let exempt = ask_pool_data.mint == network_data.primary_token;
+    let exempt = ask_pool_data.mint == network_data.primary;
     let (new_ask_reserve_with_fee, paid_amount, _fee, earning) =
       Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve, exempt)
         .ok_or(AppError::Overflow)?;
@@ -698,7 +698,7 @@ impl Processor {
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.owner != *dao_acc.key || !is_owner {
+    if network_data.dao != *dao_acc.key || !is_owner {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -727,7 +727,7 @@ impl Processor {
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.owner != *dao_acc.key || is_owner {
+    if network_data.dao != *dao_acc.key || is_owner {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -752,7 +752,7 @@ impl Processor {
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.owner != *dao_acc.key || is_owner {
+    if network_data.dao != *dao_acc.key || is_owner {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -780,7 +780,7 @@ impl Processor {
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.owner != *dao_acc.key || is_owner {
+    if network_data.dao != *dao_acc.key || is_owner {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -807,7 +807,7 @@ impl Processor {
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.owner != *dao_acc.key || is_owner {
+    if network_data.dao != *dao_acc.key || is_owner {
       return Err(AppError::InvalidOwner.into());
     }
 

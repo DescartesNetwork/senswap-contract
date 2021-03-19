@@ -29,9 +29,9 @@ impl Default for NetworkState {
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
-  pub owner: Pubkey,         // Must be multisig
-  pub primary_token: Pubkey, // Must be SEN
-  pub vault: Pubkey,         // A SEN account
+  pub dao: Pubkey,     // Must be multisig
+  pub primary: Pubkey, // Must be SEN
+  pub vault: Pubkey,   // A SEN account
   pub mints: [Pubkey; MAX_MINTS],
   pub state: NetworkState,
 }
@@ -81,11 +81,10 @@ impl Pack for Network {
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     let src = array_ref![src, 0, 449];
-    let (owner, primary_token, vault, mints_flat, state) =
-      array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
+    let (dao, primary, vault, mints_flat, state) = array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
     let mut network = Network {
-      owner: Pubkey::new_from_array(*owner),
-      primary_token: Pubkey::new_from_array(*primary_token),
+      dao: Pubkey::new_from_array(*dao),
+      primary: Pubkey::new_from_array(*primary),
       vault: Pubkey::new_from_array(*vault),
       mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
       state: NetworkState::try_from_primitive(state[0])
@@ -99,17 +98,17 @@ impl Pack for Network {
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     let dst = array_mut_ref![dst, 0, 449];
-    let (dst_owner, dst_primary_token, dst_vault, dst_mints_flat, dst_state) =
+    let (dst_dao, dst_primary, dst_vault, dst_mints_flat, dst_state) =
       mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
     let &Network {
-      ref owner,
-      ref primary_token,
+      ref dao,
+      ref primary,
       ref vault,
       ref mints,
       state,
     } = self;
-    dst_owner.copy_from_slice(owner.as_ref());
-    dst_primary_token.copy_from_slice(primary_token.as_ref());
+    dst_dao.copy_from_slice(dao.as_ref());
+    dst_primary.copy_from_slice(primary.as_ref());
     dst_vault.copy_from_slice(vault.as_ref());
     for (i, src) in mints.iter().enumerate() {
       let dst_array = array_mut_ref![dst_mints_flat, 32 * i, 32];
