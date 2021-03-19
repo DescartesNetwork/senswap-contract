@@ -16,6 +16,7 @@ pub enum AppInstruction {
   AddSigner,
   ReplaceSigner,
   RemoveSigner,
+  Earn { amount: u64 },
   CloseLPT,
   ClosePool,
 }
@@ -77,8 +78,16 @@ impl AppInstruction {
       9 => Self::AddSigner,
       10 => Self::ReplaceSigner,
       11 => Self::RemoveSigner,
-      12 => Self::CloseLPT,
-      13 => Self::ClosePool,
+      12 => {
+        let amount = rest
+          .get(..8)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::Earn { amount }
+      }
+      13 => Self::CloseLPT,
+      14 => Self::ClosePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

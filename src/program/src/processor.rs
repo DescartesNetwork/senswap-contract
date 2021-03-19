@@ -98,6 +98,11 @@ impl Processor {
         Self::remove_signer(program_id, accounts)
       }
 
+      AppInstruction::Earn { amount } => {
+        info!("Calling Earn function");
+        Self::earn(amount, program_id, accounts)
+      }
+
       AppInstruction::CloseLPT {} => {
         info!("Calling CloseLPT function");
         Self::close_lpt(program_id, accounts)
@@ -119,6 +124,7 @@ impl Processor {
     let network_acc = next_account_info(accounts_iter)?;
     let primary_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
+    let treasurer = next_account_info(accounts_iter)?;
     let dao_acc = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
@@ -131,7 +137,14 @@ impl Processor {
     if network_data.is_initialized() || dao_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
-    if !owner.is_signer || !network_acc.is_signer || !vault_acc.is_signer || !dao_acc.is_signer {
+    let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
+    let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+    if !owner.is_signer
+      || !network_acc.is_signer
+      || !vault_acc.is_signer
+      || treasurer_key == *treasurer.key
+      || !dao_acc.is_signer
+    {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -139,7 +152,7 @@ impl Processor {
     let ix_initialize_account = ISPLT::initialize_account(
       *vault_acc.key,
       *primary_acc.key,
-      *owner.key,
+      *treasurer.key,
       *sysvar_rent_acc.key,
       *splt_program.key,
     )?;
@@ -148,7 +161,7 @@ impl Processor {
       &[
         vault_acc.clone(),
         primary_acc.clone(),
-        owner.clone(),
+        treasurer.clone(),
         sysvar_rent_acc.clone(),
         splt_program.clone(),
       ],
@@ -818,6 +831,55 @@ impl Processor {
       }
     }
     DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
+
+    Ok(())
+  }
+
+  fn earn(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let dao_acc = next_account_info(accounts_iter)?;
+    let network_acc = next_account_info(accounts_iter)?;
+    let vault_acc = next_account_info(accounts_iter)?;
+    let dst_acc = next_account_info(accounts_iter)?;
+    let treasurer = next_account_info(accounts_iter)?;
+    let splt_program = next_account_info(accounts_iter)?;
+    if dao_acc.owner != program_id || network_acc.owner != program_id {
+      return Err(AppError::IncorrectProgramId.into());
+    }
+
+    let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
+    let network_data = Network::unpack(&network_acc.data.borrow())?;
+    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
+    let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
+    let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
+    if network_data.vault != *vault_acc.key
+      || treasurer_key != *treasurer.key
+      || network_data.dao != *dao_acc.key
+      || is_owner
+    {
+      return Err(AppError::InvalidOwner.into());
+    }
+    if amount == 0 {
+      return Err(AppError::ZeroValue.into());
+    }
+    // Transfer earning
+    let ix_transfer = ISPLT::transfer(
+      amount,
+      *vault_acc.key,
+      *dst_acc.key,
+      *treasurer.key,
+      *splt_program.key,
+    )?;
+    invoke_signed(
+      &ix_transfer,
+      &[
+        vault_acc.clone(),
+        dst_acc.clone(),
+        treasurer.clone(),
+        splt_program.clone(),
+      ],
+      &[&seed],
+    )?;
 
     Ok(())
   }
