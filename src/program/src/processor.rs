@@ -721,8 +721,8 @@ impl Processor {
     let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_owner {
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
+    if network_data.dao != *dao_acc.key || !consented {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -750,8 +750,8 @@ impl Processor {
     let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || is_owner {
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
+    if network_data.dao != *dao_acc.key || consented {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -775,8 +775,8 @@ impl Processor {
 
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || is_owner {
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
+    if network_data.dao != *dao_acc.key || consented {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -803,8 +803,8 @@ impl Processor {
 
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || is_owner {
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
+    if network_data.dao != *dao_acc.key || consented {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -830,8 +830,8 @@ impl Processor {
 
     let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || is_owner {
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
+    if network_data.dao != *dao_acc.key || consented {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -860,13 +860,13 @@ impl Processor {
 
     let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_owner = Self::multisig(&dao_data, accounts_iter.as_slice());
+    let consented = Self::multisig(&dao_data, accounts_iter.as_slice());
     let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
     if network_data.vault != *vault_acc.key
       || treasurer_key != *treasurer.key
       || network_data.dao != *dao_acc.key
-      || is_owner
+      || consented
     {
       return Err(AppError::InvalidOwner.into());
     }
