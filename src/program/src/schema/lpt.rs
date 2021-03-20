@@ -1,5 +1,6 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use solana_program::{
+  info,
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
   pubkey::Pubkey,
@@ -38,6 +39,7 @@ impl Pack for LPT {
   const LEN: usize = 32 + 32 + 16 + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    info!("Read LPT data");
     let src = array_ref![src, 0, 81];
     let (owner, pool, lpt, is_initialized) = array_refs![src, 32, 32, 16, 1];
     Ok(LPT {
@@ -53,6 +55,7 @@ impl Pack for LPT {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    info!("Write LPT data");
     let dst = array_mut_ref![dst, 0, 81];
     let (dst_owner, dst_pool, dst_lpt, dst_is_initialized) = mut_array_refs![dst, 32, 32, 16, 1];
     let &LPT {

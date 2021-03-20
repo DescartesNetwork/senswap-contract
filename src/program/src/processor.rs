@@ -226,6 +226,7 @@ impl Processor {
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
     if !owner.is_signer
       || !pool_acc.is_signer
+      || !treasury_acc.is_signer
       || !lpt_acc.is_signer
       || treasurer_key != *treasurer.key
     {
@@ -595,8 +596,8 @@ impl Processor {
       .checked_add(earning)
       .ok_or(AppError::Overflow)?;
     ask_pool_data.reserve = new_ask_reserve;
-    // Transfer ask
     Pool::pack(ask_pool_data, &mut ask_pool_acc.data.borrow_mut())?;
+    // Transfer ask
     let ix_transfer = ISPLT::transfer(
       paid_amount,
       *ask_treasury_acc.key,
@@ -628,7 +629,7 @@ impl Processor {
       .ok_or(AppError::Overflow)?;
       let earning_in_sen = sen_pool_data
         .reserve
-        .checked_sub(new_ask_reserve)
+        .checked_sub(new_sen_reserve)
         .ok_or(AppError::Overflow)?;
       sen_pool_data.reserve = new_sen_reserve;
       Pool::pack(sen_pool_data, &mut sen_pool_acc.data.borrow_mut())?;

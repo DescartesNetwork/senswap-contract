@@ -1,5 +1,6 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use solana_program::{
+  info,
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
   pubkey::Pubkey,
@@ -54,6 +55,7 @@ impl Pack for DAO {
   const LEN: usize = 32 * MAX_SIGNERS + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    info!("Read DAO data");
     let src = array_ref![src, 0, 353];
     let (signers_flat, is_initialized) = array_refs![src, 32 * MAX_SIGNERS, 1];
     let mut dao = DAO {
@@ -71,6 +73,7 @@ impl Pack for DAO {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    info!("Write DAO data");
     let dst = array_mut_ref![dst, 0, 353];
     let (dst_signers_flat, dst_is_initialized) = mut_array_refs![dst, 32 * MAX_SIGNERS, 1];
     let &DAO {

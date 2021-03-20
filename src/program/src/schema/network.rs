@@ -1,6 +1,7 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use num_enum::TryFromPrimitive;
 use solana_program::{
+  info,
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
   pubkey::Pubkey,
@@ -80,6 +81,7 @@ impl Pack for Network {
   const LEN: usize = 32 + 32 + 32 + 32 * MAX_MINTS + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    info!("Read network data");
     let src = array_ref![src, 0, 449];
     let (dao, primary, vault, mints_flat, state) = array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
     let mut network = Network {
@@ -97,6 +99,7 @@ impl Pack for Network {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    info!("Write network data");
     let dst = array_mut_ref![dst, 0, 449];
     let (dst_dao, dst_primary, dst_vault, dst_mints_flat, dst_state) =
       mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
