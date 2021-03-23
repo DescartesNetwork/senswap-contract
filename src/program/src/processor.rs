@@ -153,9 +153,9 @@ impl Processor {
     network_data.primary = *primary_acc.key;
     network_data.vault = *vault_acc.key;
     network_data.mints[0] = *primary_acc.key;
-    for j in 1..MAX_MINTS {
+    for i in 1..MAX_MINTS {
       let mint_acc = next_account_info(accounts_iter)?;
-      network_data.mints[j] = *mint_acc.key;
+      network_data.mints[i] = *mint_acc.key;
     }
     network_data.state = NetworkState::Initialized;
     Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
