@@ -7,7 +7,7 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-pub const MAX_MINTS: usize = 11;
+pub const MAX_MINTS: usize = 32;
 
 ///
 /// Network state
