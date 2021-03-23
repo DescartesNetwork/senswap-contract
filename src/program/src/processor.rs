@@ -3,7 +3,6 @@ use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
 use crate::schema::{
-  dao::{DAO, MAX_SIGNERS},
   lpt::LPT,
   network::{Network, NetworkState, MAX_MINTS},
   pool::{Pool, PoolState},
@@ -83,21 +82,6 @@ impl Processor {
         Self::thaw_pool(program_id, accounts)
       }
 
-      AppInstruction::AddSigner {} => {
-        info!("Calling AddSigner function");
-        Self::add_signer(program_id, accounts)
-      }
-
-      AppInstruction::ReplaceSigner {} => {
-        info!("Calling ReplaceSigner function");
-        Self::replace_signer(program_id, accounts)
-      }
-
-      AppInstruction::RemoveSigner {} => {
-        info!("Calling RemoveSigner function");
-        Self::remove_signer(program_id, accounts)
-      }
-
       AppInstruction::Earn { amount } => {
         info!("Calling Earn function");
         Self::earn(amount, program_id, accounts)
@@ -125,16 +109,14 @@ impl Processor {
     let primary_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
-    let dao_acc = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id || dao_acc.owner != program_id {
+    if network_acc.owner != program_id {
       return Err(AppError::IncorrectProgramId.into());
     }
 
     let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
-    let mut dao_data = DAO::unpack_unchecked(&dao_acc.data.borrow())?;
-    if network_data.is_initialized() || dao_data.is_initialized() {
+    if network_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
     let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
@@ -143,7 +125,6 @@ impl Processor {
       || !network_acc.is_signer
       || !vault_acc.is_signer
       || treasurer_key != *treasurer.key
-      || !dao_acc.is_signer
     {
       return Err(AppError::InvalidOwner.into());
     }
@@ -167,24 +148,14 @@ impl Processor {
       ],
     )?;
 
-    // Update DAO data
-    dao_data.signers[0] = *owner.key;
-    for i in 1..MAX_SIGNERS {
-      let signer = next_account_info(accounts_iter)?;
-      dao_data.signers[i] = *signer.key;
-      info!(&signer.key.to_string());
-    }
-    dao_data.is_initialized = true;
-    DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
     // Update network data
-    network_data.dao = *dao_acc.key;
+    network_data.owner = *owner.key;
     network_data.primary = *primary_acc.key;
     network_data.vault = *vault_acc.key;
     network_data.mints[0] = *primary_acc.key;
     for j in 1..MAX_MINTS {
       let mint_acc = next_account_info(accounts_iter)?;
       network_data.mints[j] = *mint_acc.key;
-      info!(&mint_acc.key.to_string());
     }
     network_data.state = NetworkState::Initialized;
     Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
@@ -708,21 +679,16 @@ impl Processor {
 
   pub fn freeze_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
+    let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id
-      || network_acc.owner != program_id
-      || pool_acc.owner != program_id
-    {
+    if network_acc.owner != program_id || pool_acc.owner != program_id {
       return Err(AppError::IncorrectProgramId.into());
     }
 
-    let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_consented {
+    if network_data.owner != *owner.key || !owner.is_signer {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -737,21 +703,16 @@ impl Processor {
 
   pub fn thaw_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
+    let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id
-      || network_acc.owner != program_id
-      || pool_acc.owner != program_id
-    {
+    if network_acc.owner != program_id || pool_acc.owner != program_id {
       return Err(AppError::IncorrectProgramId.into());
     }
 
-    let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_consented {
+    if network_data.owner != *owner.key || !owner.is_signer {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -764,109 +725,25 @@ impl Processor {
     Ok(())
   }
 
-  pub fn add_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
-    let new_signer = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id || network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
-
-    let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_consented {
-      return Err(AppError::InvalidOwner.into());
-    }
-
-    for (position, key) in dao_data.signers.iter().enumerate() {
-      if *key == Pubkey::new(&[0u8; 32]) {
-        dao_data.signers[position] = *new_signer.key;
-        break;
-      }
-    }
-    DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
-  pub fn replace_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
-    let old_signer = next_account_info(accounts_iter)?;
-    let new_signer = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id || network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
-
-    let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_consented {
-      return Err(AppError::InvalidOwner.into());
-    }
-
-    for (position, key) in dao_data.signers.iter().enumerate() {
-      if *key == *old_signer.key {
-        dao_data.signers[position] = *new_signer.key;
-        break;
-      }
-    }
-    DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
-  pub fn remove_signer(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
-    let old_signer = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id || network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
-
-    let mut dao_data = DAO::unpack(&dao_acc.data.borrow())?;
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
-    if network_data.dao != *dao_acc.key || !is_consented {
-      return Err(AppError::InvalidOwner.into());
-    }
-
-    for (position, key) in dao_data.signers.iter().enumerate() {
-      if *key == *old_signer.key {
-        dao_data.signers[position] = Pubkey::new(&[0u8; 32]);
-        break;
-      }
-    }
-    DAO::pack(dao_data, &mut dao_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
   pub fn earn(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
-    let dao_acc = next_account_info(accounts_iter)?;
+    let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
-    if dao_acc.owner != program_id || network_acc.owner != program_id {
+    if network_acc.owner != program_id {
       return Err(AppError::IncorrectProgramId.into());
     }
 
-    let dao_data = DAO::unpack(&dao_acc.data.borrow())?;
     let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let is_consented = Self::multisig(&dao_data, accounts_iter.as_slice());
     let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
     if network_data.vault != *vault_acc.key
       || treasurer_key != *treasurer.key
-      || network_data.dao != *dao_acc.key
-      || !is_consented
+      || network_data.owner != *owner.key
+      || !owner.is_signer
     {
       return Err(AppError::InvalidOwner.into());
     }
@@ -977,28 +854,6 @@ impl Processor {
   ///
   /// Utilities
   ///
-  pub fn multisig(dao_data: &DAO, signers: &[AccountInfo]) -> bool {
-    let mut num_signers = 0;
-    let mut matched = [false; MAX_SIGNERS];
-    for signer in signers {
-      for (position, key) in dao_data.signers.iter().enumerate() {
-        if *key == Pubkey::new(&[0u8; 32]) {
-          continue;
-        }
-        if signer.is_signer && *key == *signer.key && !matched[position] {
-          matched[position] = true;
-          num_signers += 1;
-        }
-      }
-    }
-    if num_signers == 0 {
-      return false;
-    }
-    if dao_data.num_signers() * 10 / num_signers <= 15 {
-      return true;
-    }
-    false
-  }
 
   pub fn apply_fee(
     new_ask_reserve: u64,

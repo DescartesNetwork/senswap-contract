@@ -30,7 +30,7 @@ impl Default for NetworkState {
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
-  pub dao: Pubkey,     // Must be multisig
+  pub owner: Pubkey,   // Must be multisig
   pub primary: Pubkey, // Must be SEN
   pub vault: Pubkey,   // A SEN account
   pub mints: [Pubkey; MAX_MINTS],
@@ -83,9 +83,10 @@ impl Pack for Network {
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     info!("Read network data");
     let src = array_ref![src, 0, 449];
-    let (dao, primary, vault, mints_flat, state) = array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
+    let (owner, primary, vault, mints_flat, state) =
+      array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
     let mut network = Network {
-      dao: Pubkey::new_from_array(*dao),
+      owner: Pubkey::new_from_array(*owner),
       primary: Pubkey::new_from_array(*primary),
       vault: Pubkey::new_from_array(*vault),
       mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
@@ -101,16 +102,16 @@ impl Pack for Network {
   fn pack_into_slice(&self, dst: &mut [u8]) {
     info!("Write network data");
     let dst = array_mut_ref![dst, 0, 449];
-    let (dst_dao, dst_primary, dst_vault, dst_mints_flat, dst_state) =
+    let (dst_owner, dst_primary, dst_vault, dst_mints_flat, dst_state) =
       mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
     let &Network {
-      ref dao,
+      ref owner,
       ref primary,
       ref vault,
       ref mints,
       state,
     } = self;
-    dst_dao.copy_from_slice(dao.as_ref());
+    dst_owner.copy_from_slice(owner.as_ref());
     dst_primary.copy_from_slice(primary.as_ref());
     dst_vault.copy_from_slice(vault.as_ref());
     for (i, src) in mints.iter().enumerate() {

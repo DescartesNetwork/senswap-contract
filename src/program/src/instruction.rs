@@ -13,9 +13,6 @@ pub enum AppInstruction {
   Transfer { lpt: u128 },
   FreezePool,
   ThawPool,
-  AddSigner,
-  ReplaceSigner,
-  RemoveSigner,
   Earn { amount: u64 },
   CloseLPT,
   ClosePool,
@@ -75,10 +72,7 @@ impl AppInstruction {
       }
       7 => Self::FreezePool,
       8 => Self::ThawPool,
-      9 => Self::AddSigner,
-      10 => Self::ReplaceSigner,
-      11 => Self::RemoveSigner,
-      12 => {
+      9 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -86,8 +80,8 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Earn { amount }
       }
-      13 => Self::CloseLPT,
-      14 => Self::ClosePool,
+      10 => Self::CloseLPT,
+      11 => Self::ClosePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
