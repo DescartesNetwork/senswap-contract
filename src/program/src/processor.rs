@@ -490,24 +490,16 @@ impl Processor {
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
     let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
-    let mut sen_pool_data = Pool::unpack(&sen_pool_acc.data.borrow())?;
     let ask_seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
     let ask_treasurer_key = Pubkey::create_program_address(&ask_seed, program_id)?;
-    let sen_seed: &[&[_]] = &[&sen_pool_acc.key.to_bytes()[..]];
-    let sen_treasurer_key = Pubkey::create_program_address(&sen_seed, program_id)?;
     if !owner.is_signer
       || bid_pool_data.treasury != *bid_treasury_acc.key
       || ask_pool_data.treasury != *ask_treasury_acc.key
       || ask_treasurer_key != *ask_treasurer.key
-      || sen_pool_data.treasury != *sen_treasury_acc.key
-      || sen_treasurer_key != *sen_treasurer.key
     {
       return Err(AppError::InvalidOwner.into());
     }
-    if sen_pool_data.network != *network_acc.key
-      || bid_pool_data.network != *network_acc.key
-      || ask_pool_data.network != *network_acc.key
-    {
+    if bid_pool_data.network != *network_acc.key || ask_pool_data.network != *network_acc.key {
       return Err(AppError::IncorrectNetworkId.into());
     }
     if bid_pool_data.is_frozen() || ask_pool_data.is_frozen() {
@@ -589,6 +581,16 @@ impl Processor {
 
     // Execute earning
     if earning != 0 {
+      let mut sen_pool_data = Pool::unpack(&sen_pool_acc.data.borrow())?;
+      let sen_seed: &[&[_]] = &[&sen_pool_acc.key.to_bytes()[..]];
+      let sen_treasurer_key = Pubkey::create_program_address(&sen_seed, program_id)?;
+      if sen_pool_data.treasury != *sen_treasury_acc.key || sen_treasurer_key != *sen_treasurer.key
+      {
+        return Err(AppError::InvalidOwner.into());
+      }
+      if sen_pool_data.network != *network_acc.key {
+        return Err(AppError::IncorrectNetworkId.into());
+      }
       // Swap earning to SEN
       let new_sen_reserve = Oracle::curve(
         new_ask_reserve,          // with earning
