@@ -96,6 +96,11 @@ impl Processor {
         info!("Calling ClosePool function");
         Self::close_pool(program_id, accounts)
       }
+
+      AppInstruction::TransferOwnership {} => {
+        info!("Calling TransferOwnership function");
+        Self::transfer_ownership(program_id, accounts)
+      }
     }
   }
 
@@ -849,6 +854,27 @@ impl Processor {
       .checked_add(pool_acc.lamports())
       .ok_or(AppError::Overflow)?;
     **pool_acc.lamports.borrow_mut() = 0;
+
+    Ok(())
+  }
+
+  pub fn transfer_ownership(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let owner = next_account_info(accounts_iter)?;
+    let new_owner = next_account_info(accounts_iter)?;
+    let network_acc = next_account_info(accounts_iter)?;
+    if network_acc.owner != program_id {
+      return Err(AppError::IncorrectProgramId.into());
+    }
+
+    let mut network_data = Network::unpack(&network_acc.data.borrow())?;
+    if !owner.is_signer || !new_owner.is_signer || network_data.owner != *owner.key {
+      return Err(AppError::InvalidOwner.into());
+    }
+
+    // Update network data
+    network_data.owner = *new_owner.key;
+    Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
 
     Ok(())
   }
