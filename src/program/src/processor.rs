@@ -118,12 +118,12 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc])?;
     Self::is_signer(&[owner, network_acc, vault_acc])?;
+    Self::safe_seed(vault_acc, treasurer, program_id)?;
 
     let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
     if network_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
-    let _: &[u8] = &Self::safe_seed(vault_acc, treasurer, program_id)?[..];
 
     // Vault Constructor
     XSPLT::initialize_account(
@@ -165,16 +165,14 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc, pool_acc, lpt_acc])?;
     Self::is_signer(&[owner, pool_acc, treasury_acc, lpt_acc])?;
+    Self::is_owner(owner, network_acc)?;
+    Self::safe_seed(pool_acc, treasurer, program_id)?;
 
     let mut network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
     if pool_data.is_initialized() || lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
-    }
-    let _: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
-    if network_data.owner == *owner.key {
-      return Err(AppError::InvalidOwner.into());
     }
     if *mint_acc.key != network_data.primary_token && !network_data.is_activated() {
       return Err(AppError::NotInitialized.into());
@@ -549,12 +547,9 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc, pool_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_owner(owner, network_acc)?;
 
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    if network_data.owner != *owner.key {
-      return Err(AppError::InvalidOwner.into());
-    }
     if pool_data.network != *network_acc.key {
       return Err(AppError::IncorrectNetworkId.into());
     }
@@ -573,12 +568,9 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc, pool_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_owner(owner, network_acc)?;
 
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    if network_data.owner != *owner.key {
-      return Err(AppError::InvalidOwner.into());
-    }
     if pool_data.network != *network_acc.key {
       return Err(AppError::IncorrectNetworkId.into());
     }
@@ -600,10 +592,11 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_owner(owner, network_acc)?;
 
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let seed: &[u8] = &Self::safe_seed(vault_acc, treasurer, program_id)?[..];
-    if network_data.owner != *owner.key || network_data.vault != *vault_acc.key {
+    if network_data.vault != *vault_acc.key {
       return Err(AppError::InvalidOwner.into());
     }
     if amount == 0 {
@@ -653,11 +646,11 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc, pool_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_owner(owner, network_acc)?;
 
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
     let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
-    if network_data.owner != *owner.key || pool_data.treasury != *treasury_acc.key {
+    if pool_data.treasury != *treasury_acc.key {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -687,13 +680,10 @@ impl Processor {
 
     Self::is_program(program_id, &[network_acc])?;
     Self::is_signer(&[owner, new_owner])?;
-
-    let mut network_data = Network::unpack(&network_acc.data.borrow())?;
-    if network_data.owner != *owner.key {
-      return Err(AppError::InvalidOwner.into());
-    }
+    Self::is_owner(owner, network_acc)?;
 
     // Update network data
+    let mut network_data = Network::unpack(&network_acc.data.borrow())?;
     network_data.owner = *new_owner.key;
     Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
 
@@ -722,9 +712,17 @@ impl Processor {
     Ok(())
   }
 
-  pub fn safe_seed<'a>(
-    seed_acc: &'a AccountInfo,
-    expected_acc: &'a AccountInfo,
+  pub fn is_owner(owner: &AccountInfo, network_acc: &AccountInfo) -> ProgramResult {
+    let network_data = Network::unpack(&network_acc.data.borrow())?;
+    if network_data.owner != *owner.key {
+      return Err(AppError::InvalidOwner.into());
+    }
+    Ok(())
+  }
+
+  pub fn safe_seed(
+    seed_acc: &AccountInfo,
+    expected_acc: &AccountInfo,
     program_id: &Pubkey,
   ) -> Result<[u8; 32], PubkeyError> {
     let seed: [u8; 32] = seed_acc.key.to_bytes();
