@@ -7,8 +7,6 @@ use solana_program::{
   pubkey::Pubkey,
 };
 
-pub const MAX_MINTS: usize = 21;
-
 ///
 /// Network state
 ///
@@ -30,10 +28,10 @@ impl Default for NetworkState {
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Network {
-  pub owner: Pubkey,   // Must be multisig
-  pub primary: Pubkey, // Must be SEN
-  pub vault: Pubkey,   // A SEN account
-  pub mints: [Pubkey; MAX_MINTS],
+  pub owner: Pubkey,         // Must be multisig
+  pub primary_token: Pubkey, // SEN token
+  pub primary_pool: Pubkey,  // A pool of SEN
+  pub vault: Pubkey,         // A SEN account
   pub state: NetworkState,
 }
 
@@ -44,18 +42,6 @@ impl Network {
   // Check legal to swap
   pub fn is_activated(&self) -> bool {
     self.state == NetworkState::Activated
-  }
-  // The mint is legally included in network
-  pub fn is_approved(&self, mint: &Pubkey) -> bool {
-    if *mint == Pubkey::new(&[0u8; 32]) {
-      return false;
-    }
-    for m in self.mints.iter() {
-      if *m == *mint {
-        return true;
-      }
-    }
-    false
   }
 }
 
@@ -78,46 +64,39 @@ impl IsInitialized for Network {
 ///
 impl Pack for Network {
   // Fixed length
-  const LEN: usize = 32 + 32 + 32 + 32 * MAX_MINTS + 1;
+  const LEN: usize = 32 + 32 + 32 + 32 + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     info!("Read network data");
-    let src = array_ref![src, 0, 769];
-    let (owner, primary, vault, mints_flat, state) =
-      array_refs![src, 32, 32, 32, 32 * MAX_MINTS, 1];
+    let src = array_ref![src, 0, 129];
+    let (owner, primary_token, primary_pool, vault, state) = array_refs![src, 32, 32, 32, 32, 1];
     let mut network = Network {
       owner: Pubkey::new_from_array(*owner),
-      primary: Pubkey::new_from_array(*primary),
+      primary_token: Pubkey::new_from_array(*primary_token),
+      primary_pool: Pubkey::new_from_array(*primary_pool),
       vault: Pubkey::new_from_array(*vault),
-      mints: [Pubkey::new_from_array([0u8; 32]); MAX_MINTS],
       state: NetworkState::try_from_primitive(state[0])
         .or(Err(ProgramError::InvalidAccountData))?,
     };
-    for (src, dst) in mints_flat.chunks(32).zip(network.mints.iter_mut()) {
-      *dst = Pubkey::new(src);
-    }
     Ok(network)
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     info!("Write network data");
-    let dst = array_mut_ref![dst, 0, 769];
-    let (dst_owner, dst_primary, dst_vault, dst_mints_flat, dst_state) =
-      mut_array_refs![dst, 32, 32, 32, 32 * MAX_MINTS, 1];
+    let dst = array_mut_ref![dst, 0, 129];
+    let (dst_owner, dst_primary_token, dst_primary_pool, dst_vault, dst_state) =
+      mut_array_refs![dst, 32, 32, 32, 32, 1];
     let &Network {
       ref owner,
-      ref primary,
+      ref primary_token,
+      ref primary_pool,
       ref vault,
-      ref mints,
       state,
     } = self;
     dst_owner.copy_from_slice(owner.as_ref());
-    dst_primary.copy_from_slice(primary.as_ref());
+    dst_primary_token.copy_from_slice(primary_token.as_ref());
+    dst_primary_pool.copy_from_slice(primary_pool.as_ref());
     dst_vault.copy_from_slice(vault.as_ref());
-    for (i, src) in mints.iter().enumerate() {
-      let dst_array = array_mut_ref![dst_mints_flat, 32 * i, 32];
-      dst_array.copy_from_slice(src.as_ref());
-    }
     *dst_state = [state as u8];
   }
 }

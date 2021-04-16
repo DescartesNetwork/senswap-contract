@@ -4,7 +4,7 @@ use crate::instruction::AppInstruction;
 use crate::interfaces::isplt::ISPLT;
 use crate::schema::{
   lpt::LPT,
-  network::{Network, NetworkState, MAX_MINTS},
+  network::{Network, NetworkState},
   pool::{Pool, PoolState},
 };
 use solana_program::{
@@ -111,14 +111,14 @@ impl Processor {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
-    let primary_acc = next_account_info(accounts_iter)?;
+    let primary_token_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc])?;
+    Self::is_signer(&[owner, network_acc, vault_acc])?;
 
     let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
     if network_data.is_initialized() {
@@ -126,18 +126,14 @@ impl Processor {
     }
     let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-    if !owner.is_signer
-      || !network_acc.is_signer
-      || !vault_acc.is_signer
-      || treasurer_key != *treasurer.key
-    {
+    if treasurer_key != *treasurer.key {
       return Err(AppError::InvalidOwner.into());
     }
 
     // Vault Constructor
     let ix_initialize_account = ISPLT::initialize_account(
       *vault_acc.key,
-      *primary_acc.key,
+      *primary_token_acc.key,
       *treasurer.key,
       *sysvar_rent_acc.key,
       *splt_program.key,
@@ -146,7 +142,7 @@ impl Processor {
       &ix_initialize_account,
       &[
         vault_acc.clone(),
-        primary_acc.clone(),
+        primary_token_acc.clone(),
         treasurer.clone(),
         sysvar_rent_acc.clone(),
         splt_program.clone(),
@@ -155,13 +151,8 @@ impl Processor {
 
     // Update network data
     network_data.owner = *owner.key;
-    network_data.primary = *primary_acc.key;
+    network_data.primary_token = *primary_token_acc.key;
     network_data.vault = *vault_acc.key;
-    network_data.mints[0] = *primary_acc.key;
-    for i in 1..MAX_MINTS {
-      let mint_acc = next_account_info(accounts_iter)?;
-      network_data.mints[i] = *mint_acc.key;
-    }
     network_data.state = NetworkState::Initialized;
     Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
 
@@ -185,12 +176,9 @@ impl Processor {
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id
-      || pool_acc.owner != program_id
-      || lpt_acc.owner != program_id
-    {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc, pool_acc, lpt_acc])?;
+    Self::is_signer(&[owner, pool_acc, treasury_acc, lpt_acc])?;
 
     let mut network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
@@ -198,23 +186,15 @@ impl Processor {
     if pool_data.is_initialized() || lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
-    let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
+    let seed: &[&[u8]] = &[&pool_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-    if !owner.is_signer
-      || !pool_acc.is_signer
-      || !treasury_acc.is_signer
-      || !lpt_acc.is_signer
-      || treasurer_key != *treasurer.key
-    {
+    if network_data.owner == *owner.key || treasurer_key != *treasurer.key {
       return Err(AppError::InvalidOwner.into());
     }
-    if !network_data.is_approved(mint_acc.key) {
-      return Err(AppError::UnmatchedPool.into());
-    }
-    if *mint_acc.key != network_data.primary && !network_data.is_activated() {
+    if *mint_acc.key != network_data.primary_token && !network_data.is_activated() {
       return Err(AppError::NotInitialized.into());
     }
-    if *mint_acc.key == network_data.primary && network_data.is_activated() {
+    if *mint_acc.key == network_data.primary_token && network_data.is_activated() {
       return Err(AppError::ConstructorOnce.into());
     }
     if reserve == 0 || lpt == 0 {
@@ -260,12 +240,12 @@ impl Processor {
     )?;
 
     // Update network data
-    if *mint_acc.key == network_data.primary {
+    if *mint_acc.key == network_data.primary_token {
+      network_data.primary_pool = *pool_acc.key;
       network_data.state = NetworkState::Activated;
       Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
     }
     // Update pool data
-    pool_data.owner = *owner.key;
     pool_data.network = *network_acc.key;
     pool_data.mint = *mint_acc.key;
     pool_data.treasury = *treasury_acc.key;
@@ -288,16 +268,13 @@ impl Processor {
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
-    if pool_acc.owner != program_id || lpt_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[pool_acc, lpt_acc])?;
+    Self::is_signer(&[owner, lpt_acc])?;
 
     let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
     if lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
-    }
-    if !owner.is_signer || !lpt_acc.is_signer {
-      return Err(AppError::InvalidOwner.into());
     }
 
     lpt_data.owner = *owner.key;
@@ -321,13 +298,13 @@ impl Processor {
     let lpt_acc = next_account_info(accounts_iter)?;
     let src_acc = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
-    if pool_acc.owner != program_id || lpt_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[pool_acc, lpt_acc])?;
+    Self::is_signer(&[owner])?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-    if !owner.is_signer || pool_data.treasury != *treasury_acc.key || lpt_data.owner != *owner.key {
+    if pool_data.treasury != *treasury_acc.key || lpt_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     if lpt_data.pool != *pool_acc.key {
@@ -397,16 +374,15 @@ impl Processor {
     let dst_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
-    if pool_acc.owner != program_id || lpt_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[pool_acc, lpt_acc])?;
+    Self::is_signer(&[owner])?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
     let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-    if !owner.is_signer
-      || pool_data.treasury != *treasury_acc.key
+    if pool_data.treasury != *treasury_acc.key
       || lpt_data.owner != *owner.key
       || treasurer_key != *treasurer.key
     {
@@ -485,20 +461,19 @@ impl Processor {
     let sen_treasurer = next_account_info(accounts_iter)?;
 
     let splt_program = next_account_info(accounts_iter)?;
-    if bid_pool_acc.owner != program_id
-      || ask_pool_acc.owner != program_id
-      || sen_pool_acc.owner != program_id
-    {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(
+      program_id,
+      &[network_acc, bid_pool_acc, ask_pool_acc, sen_pool_acc],
+    )?;
+    Self::is_signer(&[owner])?;
 
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
     let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
     let ask_seed: &[&[_]] = &[&ask_pool_acc.key.to_bytes()[..]];
     let ask_treasurer_key = Pubkey::create_program_address(&ask_seed, program_id)?;
-    if !owner.is_signer
-      || bid_pool_data.treasury != *bid_treasury_acc.key
+    if bid_pool_data.treasury != *bid_treasury_acc.key
       || ask_pool_data.treasury != *ask_treasury_acc.key
       || ask_treasurer_key != *ask_treasurer.key
     {
@@ -553,7 +528,7 @@ impl Processor {
     Pool::pack(bid_pool_data, &mut bid_pool_acc.data.borrow_mut())?;
 
     // Apply fee
-    let exempt = ask_pool_data.mint == network_data.primary;
+    let exempt = ask_pool_data.mint == network_data.primary_token;
     let (new_ask_reserve_with_fee, paid_amount, _fee, earning) =
       Self::apply_fee(new_ask_reserve_without_fee, ask_pool_data.reserve, exempt)
         .ok_or(AppError::Overflow)?;
@@ -640,17 +615,14 @@ impl Processor {
     let pool_acc = next_account_info(accounts_iter)?;
     let src_lpt_acc = next_account_info(accounts_iter)?;
     let dst_lpt_acc = next_account_info(accounts_iter)?;
-    if pool_acc.owner != program_id
-      || src_lpt_acc.owner != program_id
-      || dst_lpt_acc.owner != program_id
-    {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[pool_acc, src_lpt_acc, dst_lpt_acc])?;
+    Self::is_signer(&[owner])?;
 
     let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut src_lpt_data = LPT::unpack(&src_lpt_acc.data.borrow())?;
     let mut dst_lpt_data = LPT::unpack(&dst_lpt_acc.data.borrow())?;
-    if !owner.is_signer || src_lpt_data.owner != *owner.key {
+    if src_lpt_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     if src_lpt_data.pool != *pool_acc.key || dst_lpt_data.pool != *pool_acc.key {
@@ -689,13 +661,13 @@ impl Processor {
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id || pool_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc, pool_acc])?;
+    Self::is_signer(&[owner])?;
 
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    if network_data.owner != *owner.key || !owner.is_signer {
+    if network_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -713,13 +685,13 @@ impl Processor {
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id || pool_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc, pool_acc])?;
+    Self::is_signer(&[owner])?;
 
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    if network_data.owner != *owner.key || !owner.is_signer {
+    if network_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     if pool_data.network != *network_acc.key {
@@ -740,9 +712,9 @@ impl Processor {
     let dst_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc])?;
+    Self::is_signer(&[owner])?;
 
     let network_data = Network::unpack(&network_acc.data.borrow())?;
     let seed: &[&[_]] = &[&vault_acc.key.to_bytes()[..]];
@@ -750,7 +722,6 @@ impl Processor {
     if network_data.vault != *vault_acc.key
       || treasurer_key != *treasurer.key
       || network_data.owner != *owner.key
-      || !owner.is_signer
     {
       return Err(AppError::InvalidOwner.into());
     }
@@ -784,12 +755,12 @@ impl Processor {
     let owner = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
-    if lpt_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[lpt_acc])?;
+    Self::is_signer(&[owner])?;
 
     let lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-    if !owner.is_signer || lpt_data.owner != *owner.key {
+    if lpt_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     if lpt_data.lpt != 0 {
@@ -808,24 +779,28 @@ impl Processor {
   pub fn close_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
+    let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let treasury_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
-    if pool_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
 
+    Self::is_program(program_id, &[network_acc, pool_acc])?;
+    Self::is_signer(&[owner])?;
+
+    let network_data = Network::unpack(&network_acc.data.borrow())?;
     let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[_]] = &[&pool_acc.key.to_bytes()[..]];
     let treasurer_key = Pubkey::create_program_address(&seed, program_id)?;
-    if !owner.is_signer
-      || pool_data.owner != *owner.key
+    if network_data.owner != *owner.key
       || pool_data.treasury != *treasury_acc.key
       || treasurer_key != *treasurer.key
     {
       return Err(AppError::InvalidOwner.into());
+    }
+    if pool_data.network != *network_acc.key {
+      return Err(AppError::IncorrectNetworkId.into());
     }
     if pool_data.lpt != 0 || pool_data.reserve != 0 {
       return Err(AppError::ZeroValue.into());
@@ -863,12 +838,12 @@ impl Processor {
     let owner = next_account_info(accounts_iter)?;
     let new_owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
-    if network_acc.owner != program_id {
-      return Err(AppError::IncorrectProgramId.into());
-    }
+
+    Self::is_program(program_id, &[network_acc])?;
+    Self::is_signer(&[owner, new_owner])?;
 
     let mut network_data = Network::unpack(&network_acc.data.borrow())?;
-    if !owner.is_signer || !new_owner.is_signer || network_data.owner != *owner.key {
+    if network_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
 
@@ -882,6 +857,50 @@ impl Processor {
   ///
   /// Utilities
   ///
+
+  pub fn is_program(program_id: &Pubkey, accounts: &[&AccountInfo]) -> ProgramResult {
+    for acc in &mut accounts.iter() {
+      if acc.owner != program_id {
+        return Err(AppError::IncorrectProgramId.into());
+      }
+    }
+    Ok(())
+  }
+
+  pub fn is_signer(accounts: &[&AccountInfo]) -> ProgramResult {
+    for acc in &mut accounts.iter() {
+      if !acc.is_signer {
+        return Err(AppError::InvalidOwner.into());
+      }
+    }
+    Ok(())
+  }
+
+  // pub fn tranfer_splt(
+  //   amount: u64,
+  //   src_acc: &AccountInfo,
+  //   dst_acc: &AccountInfo,
+  //   authority_acc: &AccountInfo,
+  //   splt_program: &AccountInfo,
+  // ) -> ProgramResult {
+  //   let ix_transfer = ISPLT::transfer(
+  //     amount,
+  //     *src_acc.key,
+  //     *dst_acc.key,
+  //     *authority_acc.key,
+  //     *splt_program.key,
+  //   )?;
+  //   invoke(
+  //     &ix_transfer,
+  //     &[
+  //       src_acc.clone(),
+  //       dst_acc.clone(),
+  //       authority_acc.clone(),
+  //       splt_program.clone(),
+  //     ],
+  //   )?;
+  //   Ok(())
+  // }
 
   pub fn apply_fee(
     new_ask_reserve: u64,
