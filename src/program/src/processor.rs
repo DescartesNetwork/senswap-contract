@@ -31,7 +31,7 @@ impl Processor {
   ///
   pub fn process<'a>(
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
     instruction_data: &[u8],
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
@@ -106,10 +106,7 @@ impl Processor {
   ///
   /// Controllers
   ///
-  pub fn intialize_network<'a>(
-    program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
-  ) -> ProgramResult {
+  pub fn intialize_network<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -156,7 +153,7 @@ impl Processor {
     reserve: u64,
     lpt: u128,
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
@@ -231,7 +228,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn initialize_lpt<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+  pub fn initialize_lpt<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
@@ -257,7 +254,7 @@ impl Processor {
   pub fn add_liquidity<'a>(
     reserve: u64,
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
@@ -317,7 +314,7 @@ impl Processor {
   pub fn remove_liquidity<'a>(
     lpt: u128,
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
@@ -385,11 +382,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn swap<'a>(
-    amount: u64,
-    program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
-  ) -> ProgramResult {
+  pub fn swap<'a>(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -527,7 +520,7 @@ impl Processor {
   pub fn transfer<'a>(
     lpt: u128,
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
@@ -575,7 +568,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn freeze_pool<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+  pub fn freeze_pool<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -599,7 +592,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn thaw_pool<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+  pub fn thaw_pool<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -623,11 +616,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn earn<'a>(
-    amount: u64,
-    program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
-  ) -> ProgramResult {
+  pub fn earn<'a>(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -657,7 +646,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn close_lpt<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+  pub fn close_lpt<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
@@ -683,7 +672,7 @@ impl Processor {
     Ok(())
   }
 
-  pub fn close_pool<'a>(program_id: &Pubkey, accounts: &'a [AccountInfo<'a>]) -> ProgramResult {
+  pub fn close_pool<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let network_acc = next_account_info(accounts_iter)?;
@@ -727,7 +716,7 @@ impl Processor {
 
   pub fn transfer_ownership<'a>(
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;

@@ -10,11 +10,11 @@ impl XSPLT {
   /// Initialize account
   ///
   pub fn initialize_account<'a>(
-    target_acc: &'a AccountInfo<'a>,
-    mint_acc: &'a AccountInfo<'a>,
-    owner: &'a AccountInfo<'a>,
-    sysvar_rent_acc: &'a AccountInfo<'a>,
-    splt_program: &'a AccountInfo<'a>,
+    target_acc: &AccountInfo<'a>,
+    mint_acc: &AccountInfo<'a>,
+    owner: &AccountInfo<'a>,
+    sysvar_rent_acc: &AccountInfo<'a>,
+    splt_program: &AccountInfo<'a>,
     seed: &[u8],
   ) -> ProgramResult {
     let ix = ISPLT::initialize_account(
@@ -42,10 +42,10 @@ impl XSPLT {
   ///
   pub fn transfer<'a>(
     amount: u64,
-    src_acc: &'a AccountInfo<'a>,
-    dst_acc: &'a AccountInfo<'a>,
-    owner: &'a AccountInfo<'a>,
-    splt_program: &'a AccountInfo<'a>,
+    src_acc: &AccountInfo<'a>,
+    dst_acc: &AccountInfo<'a>,
+    owner: &AccountInfo<'a>,
+    splt_program: &AccountInfo<'a>,
     seed: &[u8],
   ) -> ProgramResult {
     let ix = ISPLT::transfer(
@@ -71,10 +71,10 @@ impl XSPLT {
   /// Initialize account
   ///
   pub fn close_account<'a>(
-    src_acc: &'a AccountInfo<'a>,
-    dst_acc: &'a AccountInfo<'a>,
-    owner: &'a AccountInfo<'a>,
-    splt_program: &'a AccountInfo<'a>,
+    src_acc: &AccountInfo<'a>,
+    dst_acc: &AccountInfo<'a>,
+    owner: &AccountInfo<'a>,
+    splt_program: &AccountInfo<'a>,
     seed: &[u8],
   ) -> ProgramResult {
     let ix = ISPLT::close_account(*src_acc.key, *dst_acc.key, *owner.key, *splt_program.key)?;
