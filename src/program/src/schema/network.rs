@@ -70,7 +70,7 @@ impl Pack for Network {
     info!("Read network data");
     let src = array_ref![src, 0, 129];
     let (owner, primary_token, primary_pool, vault, state) = array_refs![src, 32, 32, 32, 32, 1];
-    let mut network = Network {
+    let network = Network {
       owner: Pubkey::new_from_array(*owner),
       primary_token: Pubkey::new_from_array(*primary_token),
       primary_pool: Pubkey::new_from_array(*primary_pool),
