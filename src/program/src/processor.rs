@@ -184,7 +184,7 @@ impl Processor {
       return Err(AppError::ZeroValue.into());
     }
 
-    // Account Constructor
+    // Initialize treasury
     XSPLT::initialize_account(
       treasury_acc,
       mint_acc,
@@ -193,10 +193,8 @@ impl Processor {
       splt_program,
       &[],
     )?;
-
     // Deposit token
     XSPLT::transfer(reserve, src_acc, treasury_acc, owner, splt_program, &[])?;
-
     // Update network data
     if *mint_acc.key == network_data.primary_token {
       network_data.primary_pool = *pool_acc.key;
@@ -274,7 +272,6 @@ impl Processor {
 
     // Deposit token
     XSPLT::transfer(reserve, src_acc, treasury_acc, owner, splt_program, &[])?;
-
     // Compute corresponding paid-back lpt
     let paid_lpt = (pool_data.lpt)
       .checked_mul(reserve as u128)
@@ -343,18 +340,16 @@ impl Processor {
       .ok_or(AppError::Overflow)?
       .checked_div(pool_data.lpt)
       .ok_or(AppError::Overflow)? as u64;
-
     // Update lpt data
     lpt_data.lpt = lpt_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
     LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
-    // Update pool
+    // Update pool data
     pool_data.reserve = pool_data
       .reserve
       .checked_sub(paid_reserve)
       .ok_or(AppError::Overflow)?;
     pool_data.lpt = pool_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-
     // Withdraw token
     XSPLT::transfer(
       paid_reserve,
