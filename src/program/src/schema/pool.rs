@@ -28,12 +28,20 @@ impl Default for PoolState {
 ///
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pool {
-  pub network: Pubkey,
-  pub mint: Pubkey,
-  pub treasury: Pubkey,
-  pub reserve: u64,
-  pub lpt: u128,
+  pub owner: Pubkey,
   pub state: PoolState,
+
+  pub mint_s: Pubkey,
+  pub treasury_s: Pubkey,
+  pub reserve_s: u64,
+
+  pub mint_a: Pubkey,
+  pub treasury_a: Pubkey,
+  pub reserve_a: u64,
+
+  pub mint_b: Pubkey,
+  pub treasury_b: Pubkey,
+  pub reserve_b: u64,
 }
 
 ///
@@ -65,40 +73,78 @@ impl IsInitialized for Pool {
 ///
 impl Pack for Pool {
   // Fixed length
-  const LEN: usize = 32 + 32 + 32 + 8 + 16 + 1;
+  const LEN: usize = 32 + 1 + 32 + 32 + 8 + 32 + 32 + 8 + 32 + 32 + 8;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     info!("Read pool data");
-    let src = array_ref![src, 0, 121];
-    let (network, mint, treasury, reserve, lpt, state) = array_refs![src, 32, 32, 32, 8, 16, 1];
+    let src = array_ref![src, 0, 249];
+    let (
+      owner,
+      state,
+      mint_s,
+      treasury_s,
+      reserve_s,
+      mint_a,
+      treasury_a,
+      reserve_a,
+      mint_b,
+      treasury_b,
+      reserve_b,
+    ) = array_refs![src, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8];
     Ok(Pool {
-      network: Pubkey::new_from_array(*network),
-      mint: Pubkey::new_from_array(*mint),
-      treasury: Pubkey::new_from_array(*treasury),
-      reserve: u64::from_le_bytes(*reserve),
-      lpt: u128::from_le_bytes(*lpt),
+      owner: Pubkey::new_from_array(*owner),
       state: PoolState::try_from_primitive(state[0]).or(Err(ProgramError::InvalidAccountData))?,
+      mint_s: Pubkey::new_from_array(*mint_s),
+      treasury_s: Pubkey::new_from_array(*treasury_s),
+      reserve_s: u64::from_le_bytes(*reserve_s),
+      mint_a: Pubkey::new_from_array(*mint_a),
+      treasury_a: Pubkey::new_from_array(*treasury_a),
+      reserve_a: u64::from_le_bytes(*reserve_a),
+      mint_b: Pubkey::new_from_array(*mint_b),
+      treasury_b: Pubkey::new_from_array(*treasury_b),
+      reserve_b: u64::from_le_bytes(*reserve_b),
     })
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     info!("Write pool data");
-    let dst = array_mut_ref![dst, 0, 121];
-    let (dst_network, dst_mint, dst_treasury, dst_reserve, dst_lpt, dst_state) =
-      mut_array_refs![dst, 32, 32, 32, 8, 16, 1];
+    let dst = array_mut_ref![dst, 0, 249];
+    let (
+      dst_owner,
+      dst_state,
+      dst_mint_s,
+      dst_treasury_s,
+      dst_reserve_s,
+      dst_mint_a,
+      dst_treasury_a,
+      dst_reserve_a,
+      dst_mint_b,
+      dst_treasury_b,
+      dst_reserve_b,
+    ) = mut_array_refs![dst, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8];
     let &Pool {
-      ref network,
-      ref mint,
-      ref treasury,
-      reserve,
-      lpt,
+      ref owner,
       state,
+      ref mint_s,
+      ref treasury_s,
+      reserve_s,
+      ref mint_a,
+      ref treasury_a,
+      reserve_a,
+      ref mint_b,
+      ref treasury_b,
+      reserve_b,
     } = self;
-    dst_network.copy_from_slice(network.as_ref());
-    dst_mint.copy_from_slice(mint.as_ref());
-    dst_treasury.copy_from_slice(treasury.as_ref());
-    *dst_reserve = reserve.to_le_bytes();
-    *dst_lpt = lpt.to_le_bytes();
+    dst_owner.copy_from_slice(owner.as_ref());
     *dst_state = [state as u8];
+    dst_mint_s.copy_from_slice(mint_s.as_ref());
+    dst_treasury_s.copy_from_slice(treasury_s.as_ref());
+    *dst_reserve_s = reserve_s.to_le_bytes();
+    dst_mint_a.copy_from_slice(mint_a.as_ref());
+    dst_treasury_a.copy_from_slice(treasury_a.as_ref());
+    *dst_reserve_a = reserve_a.to_le_bytes();
+    dst_mint_b.copy_from_slice(mint_b.as_ref());
+    dst_treasury_b.copy_from_slice(treasury_b.as_ref());
+    *dst_reserve_b = reserve_b.to_le_bytes();
   }
 }

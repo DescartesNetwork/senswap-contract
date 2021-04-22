@@ -4,19 +4,35 @@ use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AppInstruction {
-  InitializeNetwork,
-  InitializePool { reserve: u64, lpt: u128 },
+  InitializePool {
+    reserve_s: u64,
+    reserve_a: u64,
+    reserve_b: u64,
+  },
   InitializeLPT,
-  AddLiquidity { reserve: u64 },
-  RemoveLiquidity { lpt: u128 },
-  Swap { amount: u64 },
-  Transfer { lpt: u128 },
+  AddLiquidity {
+    delta_s: u64,
+    delta_a: u64,
+    delta_b: u64,
+  },
+  RemoveLiquidity {
+    lpt: u64,
+  },
+  Swap {
+    amount: u64,
+  },
+  Transfer {
+    lpt: u64,
+  },
   FreezePool,
   ThawPool,
-  Earn { amount: u64 },
+  Earn {
+    amount: u64,
+  },
   CloseLPT,
   ClosePool,
-  TransferOwnership,
+  TransferPoolOwnership,
+  TransferLPTOwnership,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -24,38 +40,60 @@ impl AppInstruction {
       .split_first()
       .ok_or(AppError::InvalidInstruction)?;
     Ok(match tag {
-      0 => Self::InitializeNetwork,
-      1 => {
-        let reserve = rest
+      0 => {
+        let reserve_s = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        let lpt = rest
-          .get(8..24)
+        let reserve_a = rest
+          .get(8..16)
           .and_then(|slice| slice.try_into().ok())
-          .map(u128::from_le_bytes)
+          .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::InitializePool { reserve, lpt }
+        let reserve_b = rest
+          .get(16..24)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::InitializePool {
+          reserve_s,
+          reserve_a,
+          reserve_b,
+        }
       }
-      2 => Self::InitializeLPT,
+      1 => Self::InitializeLPT,
+      2 => {
+        let reserve_s = rest
+          .get(..8)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        let reserve_a = rest
+          .get(8..16)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        let reserve_b = rest
+          .get(16..24)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::AddLiquidity {
+          reserve_s,
+          reserve_a,
+          reserve_b,
+        }
+      }
       3 => {
-        let reserve = rest
+        let lpt = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
-          .ok_or(AppError::InvalidInstruction)?;
-        Self::AddLiquidity { reserve }
-      }
-      4 => {
-        let lpt = rest
-          .get(..16)
-          .and_then(|slice| slice.try_into().ok())
-          .map(u128::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { lpt }
       }
-      5 => {
+      4 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -63,17 +101,17 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Swap { amount }
       }
-      6 => {
+      5 => {
         let lpt = rest
-          .get(..16)
+          .get(..8)
           .and_then(|slice| slice.try_into().ok())
-          .map(u128::from_le_bytes)
+          .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
         Self::Transfer { lpt }
       }
-      7 => Self::FreezePool,
-      8 => Self::ThawPool,
-      9 => {
+      6 => Self::FreezePool,
+      7 => Self::ThawPool,
+      8 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -81,9 +119,10 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Earn { amount }
       }
-      10 => Self::CloseLPT,
-      11 => Self::ClosePool,
-      12 => Self::TransferOwnership,
+      9 => Self::CloseLPT,
+      10 => Self::ClosePool,
+      11 => Self::TransferPoolOwnership,
+      12 => Self::TransferLPTOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

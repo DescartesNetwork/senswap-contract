@@ -13,7 +13,7 @@ use solana_program::{
 pub struct LPT {
   pub owner: Pubkey,
   pub pool: Pubkey,
-  pub lpt: u128,
+  pub lpt: u64,
   pub is_initialized: bool,
 }
 
@@ -36,16 +36,16 @@ impl IsInitialized for LPT {
 ///
 impl Pack for LPT {
   // Fixed length
-  const LEN: usize = 32 + 32 + 16 + 1;
+  const LEN: usize = 32 + 32 + 8 + 1;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     info!("Read LPT data");
-    let src = array_ref![src, 0, 81];
-    let (owner, pool, lpt, is_initialized) = array_refs![src, 32, 32, 16, 1];
+    let src = array_ref![src, 0, 73];
+    let (owner, pool, lpt, is_initialized) = array_refs![src, 32, 32, 8, 1];
     Ok(LPT {
       owner: Pubkey::new_from_array(*owner),
       pool: Pubkey::new_from_array(*pool),
-      lpt: u128::from_le_bytes(*lpt),
+      lpt: u64::from_le_bytes(*lpt),
       is_initialized: match is_initialized {
         [0] => false,
         [1] => true,
@@ -56,8 +56,8 @@ impl Pack for LPT {
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     info!("Write LPT data");
-    let dst = array_mut_ref![dst, 0, 81];
-    let (dst_owner, dst_pool, dst_lpt, dst_is_initialized) = mut_array_refs![dst, 32, 32, 16, 1];
+    let dst = array_mut_ref![dst, 0, 73];
+    let (dst_owner, dst_pool, dst_lpt, dst_is_initialized) = mut_array_refs![dst, 32, 32, 8, 1];
     let &LPT {
       ref owner,
       ref pool,

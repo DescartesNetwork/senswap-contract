@@ -4,7 +4,6 @@ use crate::instruction::AppInstruction;
 use crate::interfaces::xsplt::XSPLT;
 use crate::schema::{
   lpt::LPT,
-  network::{Network, NetworkState},
   pool::{Pool, PoolState},
 };
 use solana_program::{
@@ -14,14 +13,6 @@ use solana_program::{
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
 };
-
-///
-/// fee = 2500000/1000000000 = 0.25%
-/// earn = 500000/1000000000 = 0.05%
-///
-const FEE: u64 = 2500000;
-const EARNING: u64 = 500000;
-const DECIMALS: u64 = 1000000000;
 
 pub struct Processor {}
 
@@ -36,14 +27,13 @@ impl Processor {
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
-      AppInstruction::InitializeNetwork {} => {
-        info!("Calling InitializeNetwork function");
-        Self::intialize_network(program_id, accounts)
-      }
-
-      AppInstruction::InitializePool { reserve, lpt } => {
+      AppInstruction::InitializePool {
+        reserve_s,
+        reserve_a,
+        reserve_b,
+      } => {
         info!("Calling InitializePool function");
-        Self::initialize_pool(reserve, lpt, program_id, accounts)
+        Self::initialize_pool(reserve_s, reserve_a, reserve_b, program_id, accounts)
       }
 
       AppInstruction::InitializeLPT {} => {
@@ -51,9 +41,13 @@ impl Processor {
         Self::initialize_lpt(program_id, accounts)
       }
 
-      AppInstruction::AddLiquidity { reserve } => {
+      AppInstruction::AddLiquidity {
+        delta_s,
+        delta_a,
+        delta_b,
+      } => {
         info!("Calling AddLiquidity function");
-        Self::add_liquidity(reserve, program_id, accounts)
+        Self::add_liquidity(delta_s, delta_a, delta_b, program_id, accounts)
       }
 
       AppInstruction::RemoveLiquidity { lpt } => {
@@ -106,113 +100,129 @@ impl Processor {
   ///
   /// Controllers
   ///
-  pub fn intialize_network<'a>(program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
-    let primary_token_acc = next_account_info(accounts_iter)?;
-    let vault_acc = next_account_info(accounts_iter)?;
-    let treasurer = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-    let sysvar_rent_acc = next_account_info(accounts_iter)?;
-
-    Self::is_program(program_id, &[network_acc])?;
-    Self::is_signer(&[owner, network_acc, vault_acc])?;
-    Self::safe_seed(vault_acc, treasurer, program_id)?;
-
-    let mut network_data = Network::unpack_unchecked(&network_acc.data.borrow())?;
-    if network_data.is_initialized() {
-      return Err(AppError::ConstructorOnce.into());
-    }
-
-    // Vault Constructor
-    XSPLT::initialize_account(
-      &vault_acc,
-      &primary_token_acc,
-      &treasurer,
-      &sysvar_rent_acc,
-      &splt_program,
-      &[],
-    )?;
-
-    // Update network data
-    network_data.owner = *owner.key;
-    network_data.primary_token = *primary_token_acc.key;
-    network_data.vault = *vault_acc.key;
-    network_data.state = NetworkState::Initialized;
-    Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
 
   pub fn initialize_pool<'a>(
-    reserve: u64,
-    lpt: u128,
+    reserve_s: u64,
+    reserve_a: u64,
+    reserve_b: u64,
     program_id: &Pubkey,
     accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    let treasury_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
-    let src_acc = next_account_info(accounts_iter)?;
-    let mint_acc = next_account_info(accounts_iter)?;
+
+    let src_s_acc = next_account_info(accounts_iter)?;
+    let mint_s_acc = next_account_info(accounts_iter)?;
+    let treasury_s_acc = next_account_info(accounts_iter)?;
+
+    let src_a_acc = next_account_info(accounts_iter)?;
+    let mint_a_acc = next_account_info(accounts_iter)?;
+    let treasury_a_acc = next_account_info(accounts_iter)?;
+
+    let src_b_acc = next_account_info(accounts_iter)?;
+    let mint_b_acc = next_account_info(accounts_iter)?;
+    let treasury_b_acc = next_account_info(accounts_iter)?;
+
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
 
-    Self::is_program(program_id, &[network_acc, pool_acc, lpt_acc])?;
-    Self::is_signer(&[owner, pool_acc, treasury_acc, lpt_acc])?;
-    Self::is_owner(owner, network_acc)?;
+    Self::is_program(program_id, &[pool_acc, lpt_acc])?;
+    Self::is_signer(&[
+      owner,
+      pool_acc,
+      lpt_acc,
+      treasury_s_acc,
+      treasury_a_acc,
+      treasury_b_acc,
+    ])?;
     Self::safe_seed(pool_acc, treasurer, program_id)?;
 
-    let mut network_data = Network::unpack(&network_acc.data.borrow())?;
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
     if pool_data.is_initialized() || lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
-    if *mint_acc.key != network_data.primary_token && !network_data.is_activated() {
-      return Err(AppError::NotInitialized.into());
-    }
-    if *mint_acc.key == network_data.primary_token && network_data.is_activated() {
-      return Err(AppError::ConstructorOnce.into());
-    }
-    if reserve == 0 || lpt == 0 {
+    if reserve_s == 0 || reserve_a == 0 || reserve_b == 0 {
       return Err(AppError::ZeroValue.into());
     }
 
-    // Initialize treasury
+    // Initialize treasury S
     XSPLT::initialize_account(
-      treasury_acc,
-      mint_acc,
+      treasury_s_acc,
+      mint_s_acc,
       treasurer,
       sysvar_rent_acc,
       splt_program,
       &[],
     )?;
-    // Deposit token
-    XSPLT::transfer(reserve, src_acc, treasury_acc, owner, splt_program, &[])?;
-    // Update network data
-    if *mint_acc.key == network_data.primary_token {
-      network_data.primary_pool = *pool_acc.key;
-      network_data.state = NetworkState::Activated;
-      Network::pack(network_data, &mut network_acc.data.borrow_mut())?;
-    }
+    // Deposit token S
+    XSPLT::transfer(
+      reserve_s,
+      src_s_acc,
+      treasury_s_acc,
+      owner,
+      splt_program,
+      &[],
+    )?;
+
+    // Initialize treasury A
+    XSPLT::initialize_account(
+      treasury_a_acc,
+      mint_a_acc,
+      treasurer,
+      sysvar_rent_acc,
+      splt_program,
+      &[],
+    )?;
+    // Deposit token A
+    XSPLT::transfer(
+      reserve_a,
+      src_a_acc,
+      treasury_a_acc,
+      owner,
+      splt_program,
+      &[],
+    )?;
+
+    // Initialize treasury B
+    XSPLT::initialize_account(
+      treasury_b_acc,
+      mint_b_acc,
+      treasurer,
+      sysvar_rent_acc,
+      splt_program,
+      &[],
+    )?;
+    // Deposit token B
+    XSPLT::transfer(
+      reserve_b,
+      src_b_acc,
+      treasury_b_acc,
+      owner,
+      splt_program,
+      &[],
+    )?;
+
     // Update pool data
-    pool_data.network = *network_acc.key;
-    pool_data.mint = *mint_acc.key;
-    pool_data.treasury = *treasury_acc.key;
-    pool_data.reserve = reserve;
-    pool_data.lpt = lpt;
+    pool_data.owner = *owner.key;
     pool_data.state = PoolState::Initialized;
+    pool_data.mint_s = *mint_s_acc.key;
+    pool_data.treasury_s = *treasury_s_acc.key;
+    pool_data.reserve_s = reserve_s;
+    pool_data.mint_a = *mint_a_acc.key;
+    pool_data.treasury_a = *treasury_a_acc.key;
+    pool_data.reserve_a = reserve_a;
+    pool_data.mint_b = *mint_b_acc.key;
+    pool_data.treasury_b = *treasury_b_acc.key;
+    pool_data.reserve_b = reserve_b;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Update lpt data
     lpt_data.owner = *owner.key;
     lpt_data.pool = *pool_acc.key;
-    lpt_data.lpt = lpt;
+    lpt_data.lpt = reserve_s;
     lpt_data.is_initialized = true;
     LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
@@ -243,24 +253,41 @@ impl Processor {
   }
 
   pub fn add_liquidity<'a>(
-    reserve: u64,
+    delta_s: u64,
+    delta_a: u64,
+    delta_b: u64,
     program_id: &Pubkey,
     accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    let treasury_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
-    let src_acc = next_account_info(accounts_iter)?;
+
+    let src_s_acc = next_account_info(accounts_iter)?;
+    let mint_s_acc = next_account_info(accounts_iter)?;
+    let treasury_s_acc = next_account_info(accounts_iter)?;
+
+    let src_a_acc = next_account_info(accounts_iter)?;
+    let mint_a_acc = next_account_info(accounts_iter)?;
+    let treasury_a_acc = next_account_info(accounts_iter)?;
+
+    let src_b_acc = next_account_info(accounts_iter)?;
+    let mint_b_acc = next_account_info(accounts_iter)?;
+    let treasury_b_acc = next_account_info(accounts_iter)?;
+
     let splt_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc, lpt_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_lpt_owner(owner, lpt_acc)?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-    if pool_data.treasury != *treasury_acc.key || lpt_data.owner != *owner.key {
+    if pool_data.treasury_s != *treasury_s_acc.key
+      || pool_data.treasury_a != *treasury_a_acc.key
+      || pool_data.treasury_b != *treasury_b_acc.key
+    {
       return Err(AppError::InvalidOwner.into());
     }
     if lpt_data.pool != *pool_acc.key {
@@ -707,9 +734,17 @@ impl Processor {
     Ok(())
   }
 
-  pub fn is_owner(owner: &AccountInfo, network_acc: &AccountInfo) -> ProgramResult {
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
-    if network_data.owner != *owner.key {
+  pub fn is_pool_owner(owner: &AccountInfo, pool_acc: &AccountInfo) -> ProgramResult {
+    let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
+    if pool_data.owner != *owner.key {
+      return Err(AppError::InvalidOwner.into());
+    }
+    Ok(())
+  }
+
+  pub fn is_lpt_owner(owner: &AccountInfo, lpt_acc: &AccountInfo) -> ProgramResult {
+    let lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
+    if lpt_data.owner != *owner.key {
       return Err(AppError::InvalidOwner.into());
     }
     Ok(())
@@ -726,27 +761,5 @@ impl Processor {
       return Err(PubkeyError::InvalidSeeds);
     }
     Ok(seed)
-  }
-
-  pub fn apply_fee(
-    new_ask_reserve: u64,
-    ask_reserve: u64,
-    exempt: bool,
-  ) -> Option<(u64, u64, u64, u64)> {
-    let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve)?;
-    let fee = (paid_amount_without_fee as u128)
-      .checked_mul(FEE as u128)?
-      .checked_div(DECIMALS as u128)? as u64;
-    let mut earning = (paid_amount_without_fee as u128)
-      .checked_mul(EARNING as u128)?
-      .checked_div(DECIMALS as u128)? as u64;
-    if exempt {
-      earning = 0;
-    }
-    let new_ask_reserve_with_fee = new_ask_reserve.checked_add(fee)?;
-    let paid_amount_with_fee = paid_amount_without_fee
-      .checked_sub(fee)?
-      .checked_sub(earning)?;
-    Some((new_ask_reserve_with_fee, paid_amount_with_fee, fee, earning))
   }
 }
