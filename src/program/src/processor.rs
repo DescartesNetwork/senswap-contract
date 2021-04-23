@@ -293,59 +293,84 @@ impl Processor {
     if lpt_data.pool != *pool_acc.key {
       return Err(AppError::UnmatchedPool.into());
     }
-    if reserve == 0 {
+    if delta_s == 0 || delta_a == 0 || delta_b == 0 {
       return Err(AppError::ZeroValue.into());
     }
 
+    let (lpt, reserve_s, reserve_a, reserve_b) = Oracle::rake_in_fee(
+      delta_s,
+      delta_a,
+      delta_b,
+      pool_data.reserve_s,
+      pool_data.reserve_a,
+      pool_data.reserve_b,
+    )
+    .ok_or(AppError::Overflow)?;
+
     // Deposit token
-    XSPLT::transfer(reserve, src_acc, treasury_acc, owner, splt_program, &[])?;
-    // Compute corresponding paid-back lpt
-    let paid_lpt = (pool_data.lpt)
-      .checked_mul(reserve as u128)
-      .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve as u128)
-      .ok_or(AppError::Overflow)?;
+    XSPLT::transfer(delta_s, src_s_acc, treasury_s_acc, owner, splt_program, &[])?;
+    XSPLT::transfer(delta_a, src_a_acc, treasury_a_acc, owner, splt_program, &[])?;
+    XSPLT::transfer(delta_b, src_b_acc, treasury_b_acc, owner, splt_program, &[])?;
     // Update pool
-    pool_data.reserve = pool_data
-      .reserve
-      .checked_add(reserve)
+    pool_data.reserve_s = pool_data
+      .reserve_s
+      .checked_add(reserve_s)
       .ok_or(AppError::Overflow)?;
-    pool_data.lpt = pool_data
-      .lpt
-      .checked_add(paid_lpt)
+    pool_data.reserve_a = pool_data
+      .reserve_a
+      .checked_add(reserve_a)
+      .ok_or(AppError::Overflow)?;
+    pool_data.reserve_b = pool_data
+      .reserve_b
+      .checked_add(reserve_b)
       .ok_or(AppError::Overflow)?;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Update lpt data
-    lpt_data.lpt = lpt_data
-      .lpt
-      .checked_add(paid_lpt)
-      .ok_or(AppError::Overflow)?;
+    lpt_data.lpt = lpt_data.lpt.checked_add(lpt).ok_or(AppError::Overflow)?;
     LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
 
     Ok(())
   }
 
   pub fn remove_liquidity<'a>(
-    lpt: u128,
+    lpt: u64,
     program_id: &Pubkey,
     accounts: &[AccountInfo<'a>],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    let treasury_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
-    let dst_acc = next_account_info(accounts_iter)?;
+
+    let src_s_acc = next_account_info(accounts_iter)?;
+    let dst_s_acc = next_account_info(accounts_iter)?;
+    let mint_s_acc = next_account_info(accounts_iter)?;
+    let treasury_s_acc = next_account_info(accounts_iter)?;
+
+    let src_a_acc = next_account_info(accounts_iter)?;
+    let dst_a_acc = next_account_info(accounts_iter)?;
+    let mint_a_acc = next_account_info(accounts_iter)?;
+    let treasury_a_acc = next_account_info(accounts_iter)?;
+
+    let src_b_acc = next_account_info(accounts_iter)?;
+    let dst_b_acc = next_account_info(accounts_iter)?;
+    let mint_b_acc = next_account_info(accounts_iter)?;
+    let treasury_b_acc = next_account_info(accounts_iter)?;
+
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc, lpt_acc])?;
     Self::is_signer(&[owner])?;
+    Self::is_lpt_owner(owner, lpt_acc)?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
     let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
-    if pool_data.treasury != *treasury_acc.key || lpt_data.owner != *owner.key {
+    if pool_data.treasury_s != *treasury_s_acc.key
+      || pool_data.treasury_a != *treasury_a_acc.key
+      || pool_data.treasury_b != *treasury_b_acc.key
+    {
       return Err(AppError::InvalidOwner.into());
     }
     if lpt_data.pool != *pool_acc.key {
@@ -362,26 +387,55 @@ impl Processor {
     }
 
     // Compute corresponding paid-back reserve
-    let paid_reserve = (pool_data.reserve as u128)
-      .checked_mul(lpt)
+    let reserve_s = lpt;
+    let reserve_a = (pool_data.reserve_a as u128)
+      .checked_mul(lpt as u128)
       .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.lpt)
+      .checked_div(pool_data.reserve_s as u128)
+      .ok_or(AppError::Overflow)? as u64;
+    let reserve_b = (pool_data.reserve_b as u128)
+      .checked_mul(lpt as u128)
+      .ok_or(AppError::Overflow)?
+      .checked_div(pool_data.reserve_s as u128)
       .ok_or(AppError::Overflow)? as u64;
     // Update lpt data
     lpt_data.lpt = lpt_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
     LPT::pack(lpt_data, &mut lpt_acc.data.borrow_mut())?;
     // Update pool data
-    pool_data.reserve = pool_data
-      .reserve
-      .checked_sub(paid_reserve)
+    pool_data.reserve_s = pool_data
+      .reserve_s
+      .checked_sub(reserve_s)
       .ok_or(AppError::Overflow)?;
-    pool_data.lpt = pool_data.lpt.checked_sub(lpt).ok_or(AppError::Overflow)?;
+    pool_data.reserve_a = pool_data
+      .reserve_a
+      .checked_sub(reserve_a)
+      .ok_or(AppError::Overflow)?;
+    pool_data.reserve_b = pool_data
+      .reserve_b
+      .checked_sub(reserve_b)
+      .ok_or(AppError::Overflow)?;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Withdraw token
     XSPLT::transfer(
-      paid_reserve,
-      treasury_acc,
-      dst_acc,
+      reserve_s,
+      treasury_s_acc,
+      dst_s_acc,
+      treasurer,
+      splt_program,
+      seed,
+    )?;
+    XSPLT::transfer(
+      reserve_a,
+      treasury_a_acc,
+      dst_a_acc,
+      treasurer,
+      splt_program,
+      seed,
+    )?;
+    XSPLT::transfer(
+      reserve_b,
+      treasury_b_acc,
+      dst_b_acc,
       treasurer,
       splt_program,
       seed,
@@ -393,55 +447,37 @@ impl Processor {
   pub fn swap<'a>(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo<'a>]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
-    let network_acc = next_account_info(accounts_iter)?;
+    let pool_acc = next_account_info(accounts_iter)?;
+    let vault_acc = next_account_info(accounts_iter)?;
 
-    let bid_pool_acc = next_account_info(accounts_iter)?;
-    let bid_treasury_acc = next_account_info(accounts_iter)?;
+    let mint_bid_acc = next_account_info(accounts_iter)?;
+    let treasury_bid_acc = next_account_info(accounts_iter)?;
     let src_acc = next_account_info(accounts_iter)?;
 
-    let ask_pool_acc = next_account_info(accounts_iter)?;
-    let ask_treasury_acc = next_account_info(accounts_iter)?;
+    let mint_ask_acc = next_account_info(accounts_iter)?;
+    let treasury_ask_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
-    let ask_treasurer = next_account_info(accounts_iter)?;
 
-    let sen_pool_acc = next_account_info(accounts_iter)?;
-    let sen_treasury_acc = next_account_info(accounts_iter)?;
-    let vault_acc = next_account_info(accounts_iter)?;
-    let sen_treasurer = next_account_info(accounts_iter)?;
-
+    let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
 
-    Self::is_program(
-      program_id,
-      &[network_acc, bid_pool_acc, ask_pool_acc, sen_pool_acc],
-    )?;
+    Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
 
-    let network_data = Network::unpack(&network_acc.data.borrow())?;
-    let mut bid_pool_data = Pool::unpack(&bid_pool_acc.data.borrow())?;
-    let mut ask_pool_data = Pool::unpack(&ask_pool_acc.data.borrow())?;
-    let mut sen_pool_data = Pool::unpack(&sen_pool_acc.data.borrow())?;
-    let ask_seed: &[u8] = &Self::safe_seed(ask_pool_acc, ask_treasurer, program_id)?[..];
-    let sen_seed: &[u8] = &Self::safe_seed(sen_pool_acc, sen_treasurer, program_id)?[..];
-    if bid_pool_data.treasury != *bid_treasury_acc.key
-      || ask_pool_data.treasury != *ask_treasury_acc.key
-      || sen_pool_data.treasury != *sen_treasury_acc.key
+    let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
+    let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
+    if !pool_data.verify_mint_treasury(mint_bid_acc.key, treasury_bid_acc.key)
+      || !pool_data.verify_mint_treasury(mint_ask_acc.key, treasury_ask_acc.key)
     {
       return Err(AppError::InvalidOwner.into());
     }
-    if bid_pool_data.network != *network_acc.key
-      || ask_pool_data.network != *network_acc.key
-      || sen_pool_data.network != *network_acc.key
-    {
-      return Err(AppError::IncorrectNetworkId.into());
-    }
-    if bid_pool_data.is_frozen() || ask_pool_data.is_frozen() || sen_pool_data.is_frozen() {
+    if pool_data.is_frozen() {
       return Err(AppError::FrozenPool.into());
     }
     if amount == 0 {
       return Err(AppError::ZeroValue.into());
     }
-    if *bid_pool_acc.key == *ask_pool_acc.key {
+    if *mint_bid_acc.key == *mint_ask_acc.key {
       return Ok(());
     }
 

@@ -42,6 +42,8 @@ pub struct Pool {
   pub mint_b: Pubkey,
   pub treasury_b: Pubkey,
   pub reserve_b: u64,
+
+  pub vault: Pubkey,
 }
 
 ///
@@ -51,6 +53,20 @@ impl Pool {
   // Is frozen
   pub fn is_frozen(&self) -> bool {
     self.state == PoolState::Frozen
+  }
+  // Verify the pair of mint and treasury
+  pub fn verify_mint_treasury(&self, mint: &Pubkey, treasury: &Pubkey) -> bool {
+    if self.mint_s == *mint && self.treasury_s == *treasury {
+      return true;
+    }
+    if self.mint_a == *mint && self.treasury_a == *treasury {
+      return true;
+    }
+    if self.mint_b == *mint && self.treasury_b == *treasury {
+      return true;
+    }
+
+    false
   }
 }
 
@@ -73,11 +89,11 @@ impl IsInitialized for Pool {
 ///
 impl Pack for Pool {
   // Fixed length
-  const LEN: usize = 32 + 1 + 32 + 32 + 8 + 32 + 32 + 8 + 32 + 32 + 8;
+  const LEN: usize = 32 + 1 + 32 + 32 + 8 + 32 + 32 + 8 + 32 + 32 + 8 + 32;
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
     info!("Read pool data");
-    let src = array_ref![src, 0, 249];
+    let src = array_ref![src, 0, 281];
     let (
       owner,
       state,
@@ -90,7 +106,8 @@ impl Pack for Pool {
       mint_b,
       treasury_b,
       reserve_b,
-    ) = array_refs![src, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8];
+      vault,
+    ) = array_refs![src, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8, 32];
     Ok(Pool {
       owner: Pubkey::new_from_array(*owner),
       state: PoolState::try_from_primitive(state[0]).or(Err(ProgramError::InvalidAccountData))?,
@@ -103,12 +120,13 @@ impl Pack for Pool {
       mint_b: Pubkey::new_from_array(*mint_b),
       treasury_b: Pubkey::new_from_array(*treasury_b),
       reserve_b: u64::from_le_bytes(*reserve_b),
+      vault: Pubkey::new_from_array(*vault),
     })
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
     info!("Write pool data");
-    let dst = array_mut_ref![dst, 0, 249];
+    let dst = array_mut_ref![dst, 0, 281];
     let (
       dst_owner,
       dst_state,
@@ -121,7 +139,8 @@ impl Pack for Pool {
       dst_mint_b,
       dst_treasury_b,
       dst_reserve_b,
-    ) = mut_array_refs![dst, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8];
+      dst_vault,
+    ) = mut_array_refs![dst, 32, 1, 32, 32, 8, 32, 32, 8, 32, 32, 8, 32];
     let &Pool {
       ref owner,
       state,
@@ -134,6 +153,7 @@ impl Pack for Pool {
       ref mint_b,
       ref treasury_b,
       reserve_b,
+      ref vault,
     } = self;
     dst_owner.copy_from_slice(owner.as_ref());
     *dst_state = [state as u8];
@@ -146,5 +166,6 @@ impl Pack for Pool {
     dst_mint_b.copy_from_slice(mint_b.as_ref());
     dst_treasury_b.copy_from_slice(treasury_b.as_ref());
     *dst_reserve_b = reserve_b.to_le_bytes();
+    dst_vault.copy_from_slice(vault.as_ref());
   }
 }
