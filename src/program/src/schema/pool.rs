@@ -55,18 +55,19 @@ impl Pool {
     self.state == PoolState::Frozen
   }
   // Verify the pair of mint and treasury
-  pub fn verify_mint_treasury(&self, mint: &Pubkey, treasury: &Pubkey) -> bool {
-    if self.mint_s == *mint && self.treasury_s == *treasury {
-      return true;
+  // 0: None, 1: S pool, 2: A pool, 3: B pool
+  pub fn get_reserve(&self, treasury: &Pubkey) -> Option<(u8, u64)> {
+    if self.treasury_s == *treasury {
+      return Some((0, self.reserve_s));
     }
-    if self.mint_a == *mint && self.treasury_a == *treasury {
-      return true;
+    if self.treasury_a == *treasury {
+      return Some((1, self.reserve_a));
     }
-    if self.mint_b == *mint && self.treasury_b == *treasury {
-      return true;
+    if self.treasury_b == *treasury {
+      return Some((2, self.reserve_b));
     }
 
-    false
+    None
   }
 }
 

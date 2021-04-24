@@ -31,8 +31,8 @@ pub enum AppInstruction {
   },
   CloseLPT,
   ClosePool,
-  TransferPoolOwnership,
   TransferLPTOwnership,
+  TransferPoolOwnership,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -64,25 +64,25 @@ impl AppInstruction {
       }
       1 => Self::InitializeLPT,
       2 => {
-        let reserve_s = rest
+        let delta_s = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        let reserve_a = rest
+        let delta_a = rest
           .get(8..16)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        let reserve_b = rest
+        let delta_b = rest
           .get(16..24)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
         Self::AddLiquidity {
-          reserve_s,
-          reserve_a,
-          reserve_b,
+          delta_s,
+          delta_a,
+          delta_b,
         }
       }
       3 => {
@@ -121,8 +121,8 @@ impl AppInstruction {
       }
       9 => Self::CloseLPT,
       10 => Self::ClosePool,
-      11 => Self::TransferPoolOwnership,
-      12 => Self::TransferLPTOwnership,
+      11 => Self::TransferLPTOwnership,
+      12 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

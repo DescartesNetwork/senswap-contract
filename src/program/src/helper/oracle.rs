@@ -5,7 +5,7 @@ const SINGLE_PRECISION: u128 = 1000000000; // 10^9
 const DOUBLE_PRECISION: u128 = 1000000000000000000; // 10^18
 const TRIPPLE_PRECISION: u128 = 1000000000000000000000000000; // 10^27
 const FEE: u64 = 2500000; // 0.25%
-const EARN: u64 = 500000; // 0.05%
+const EARNING: u64 = 500000; // 0.05%
 const DECIMALS: u64 = 1000000000; // 10^9
 
 pub struct Oracle {}
@@ -35,21 +35,22 @@ impl Oracle {
     let fee = (new_ask_reserve_without_fee as u128)
       .checked_mul(FEE as u128)?
       .checked_div(DECIMALS as u128)? as u64;
-    let earn: u64 = 0;
+    let mut earning: u64 = 0;
     if !is_exempted {
-      earn = (new_ask_reserve_without_fee as u128)
-        .checked_mul(EARN as u128)?
+      earning = (new_ask_reserve_without_fee as u128)
+        .checked_mul(EARNING as u128)?
         .checked_div(DECIMALS as u128)? as u64;
     }
 
     let new_ask_reserve = new_ask_reserve_without_fee
       .checked_sub(fee)?
-      .checked_sub(earn)?;
+      .checked_sub(earning)?;
     if new_ask_reserve == 0 {
       return None;
     }
+    let paid_amount = new_ask_reserve.checked_sub(ask_reserve)?;
 
-    Some((new_ask_reserve, fee, earn))
+    Some((new_ask_reserve, paid_amount, earning))
   }
 
   pub fn _rake(
@@ -68,16 +69,16 @@ impl Oracle {
     let double_precision = BigUint::from(DOUBLE_PRECISION);
     let tripple_precision = BigUint::from(TRIPPLE_PRECISION);
     // Compute z
-    let cbrt_of_delta = (BigUint::from(delta) * tripple_precision).cbrt(); // Single precision
-    let cbrt_of_reserve = (BigUint::from(reserve_s) * tripple_precision).cbrt(); // Single precision
-    let z = (cbrt_of_delta.pow(2) * cbrt_of_reserve / tripple_precision)
+    let cbrt_of_delta = (BigUint::from(delta) * tripple_precision.clone()).cbrt(); // Single precision
+    let cbrt_of_reserve = (BigUint::from(reserve_s) * tripple_precision.clone()).cbrt(); // Single precision
+    let z = (cbrt_of_delta.pow(2) * cbrt_of_reserve / tripple_precision.clone())
       .to_u64()?
       .checked_sub(reserve_s)?;
     // Compute x
     let sqrt_of_delta_plus_reserve =
-      ((BigUint::from(delta) + BigUint::from(reserve_s)) * double_precision).sqrt(); // Single precision
-    let sqrt_of_reserve = (BigUint::from(reserve_s) * double_precision).sqrt(); // Single precision
-    let x = (sqrt_of_delta_plus_reserve * sqrt_of_reserve / double_precision)
+      ((BigUint::from(delta) + BigUint::from(reserve_s)) * double_precision.clone()).sqrt(); // Single precision
+    let sqrt_of_reserve = (BigUint::from(reserve_s) * double_precision.clone()).sqrt(); // Single precision
+    let x = (sqrt_of_delta_plus_reserve * sqrt_of_reserve / double_precision.clone())
       .to_u64()?
       .checked_sub(reserve_s)?;
     // Compute y
