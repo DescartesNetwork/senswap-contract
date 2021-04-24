@@ -1,4 +1,4 @@
-use num_integer::Roots;
+use crate::helper::math::Roots;
 
 const DOUBLE_PRECISION: u128 = 1000000000000; // 10^12
 const TRIPPLE_PRECISION: u128 = 1000000000000000000; // 10^18
