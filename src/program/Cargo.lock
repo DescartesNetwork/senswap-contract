@@ -249,8 +249,8 @@ version = "0.0.1"
 dependencies = [
  "arrayref",
  "byteorder",
- "num-bigint",
  "num-derive",
+ "num-integer",
  "num-traits",
  "num_enum",
  "solana-program",
@@ -270,17 +270,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b70ca2a6103ac8b665dc150b142ef0e4e89df640c9e6cf295d189c3caebe5a"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "num-bigint"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
-dependencies = [
- "autocfg",
- "num-integer",
- "num-traits",
 ]
 
 [[package]]

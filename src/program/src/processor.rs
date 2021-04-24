@@ -130,6 +130,7 @@ impl Processor {
     let mint_b_acc = next_account_info(accounts_iter)?;
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
+    let vault_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
@@ -142,8 +143,9 @@ impl Processor {
       treasury_s_acc,
       treasury_a_acc,
       treasury_b_acc,
+      vault_acc,
     ])?;
-    Self::safe_seed(pool_acc, treasurer, program_id)?;
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
 
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack_unchecked(&lpt_acc.data.borrow())?;
@@ -161,7 +163,7 @@ impl Processor {
       treasurer,
       sysvar_rent_acc,
       splt_program,
-      &[],
+      seed,
     )?;
     // Deposit token S
     XSPLT::transfer(
@@ -180,7 +182,7 @@ impl Processor {
       treasurer,
       sysvar_rent_acc,
       splt_program,
-      &[],
+      seed,
     )?;
     // Deposit token A
     XSPLT::transfer(
@@ -199,7 +201,7 @@ impl Processor {
       treasurer,
       sysvar_rent_acc,
       splt_program,
-      &[],
+      seed,
     )?;
     // Deposit token B
     XSPLT::transfer(
@@ -209,6 +211,16 @@ impl Processor {
       owner,
       splt_program,
       &[],
+    )?;
+
+    // Initialize vault
+    XSPLT::initialize_account(
+      vault_acc,
+      mint_s_acc,
+      treasurer,
+      sysvar_rent_acc,
+      splt_program,
+      seed,
     )?;
 
     // Update pool data
@@ -223,6 +235,7 @@ impl Processor {
     pool_data.mint_b = *mint_b_acc.key;
     pool_data.treasury_b = *treasury_b_acc.key;
     pool_data.reserve_b = reserve_b;
+    pool_data.vault = *vault_acc.key;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Update lpt data
     lpt_data.owner = *owner.key;
@@ -270,15 +283,12 @@ impl Processor {
     let lpt_acc = next_account_info(accounts_iter)?;
 
     let src_s_acc = next_account_info(accounts_iter)?;
-    let mint_s_acc = next_account_info(accounts_iter)?;
     let treasury_s_acc = next_account_info(accounts_iter)?;
 
     let src_a_acc = next_account_info(accounts_iter)?;
-    let mint_a_acc = next_account_info(accounts_iter)?;
     let treasury_a_acc = next_account_info(accounts_iter)?;
 
     let src_b_acc = next_account_info(accounts_iter)?;
-    let mint_b_acc = next_account_info(accounts_iter)?;
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
     let splt_program = next_account_info(accounts_iter)?;
@@ -298,7 +308,7 @@ impl Processor {
     if lpt_data.pool != *pool_acc.key {
       return Err(AppError::UnmatchedPool.into());
     }
-    if delta_s == 0 || delta_a == 0 || delta_b == 0 {
+    if delta_s == 0 && delta_a == 0 && delta_b == 0 {
       return Err(AppError::ZeroValue.into());
     }
 
@@ -347,19 +357,13 @@ impl Processor {
     let pool_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
 
-    let src_s_acc = next_account_info(accounts_iter)?;
     let dst_s_acc = next_account_info(accounts_iter)?;
-    let mint_s_acc = next_account_info(accounts_iter)?;
     let treasury_s_acc = next_account_info(accounts_iter)?;
 
-    let src_a_acc = next_account_info(accounts_iter)?;
     let dst_a_acc = next_account_info(accounts_iter)?;
-    let mint_a_acc = next_account_info(accounts_iter)?;
     let treasury_a_acc = next_account_info(accounts_iter)?;
 
-    let src_b_acc = next_account_info(accounts_iter)?;
     let dst_b_acc = next_account_info(accounts_iter)?;
-    let mint_b_acc = next_account_info(accounts_iter)?;
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
     let treasurer = next_account_info(accounts_iter)?;
@@ -371,7 +375,7 @@ impl Processor {
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let mut lpt_data = LPT::unpack(&lpt_acc.data.borrow())?;
-    let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.treasury_s != *treasury_s_acc.key
       || pool_data.treasury_a != *treasury_a_acc.key
       || pool_data.treasury_b != *treasury_b_acc.key
@@ -470,7 +474,7 @@ impl Processor {
     Self::is_signer(&[owner])?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     let (bid_code, bid_reserve) = pool_data
       .get_reserve(treasury_bid_acc.key)
       .ok_or(AppError::UnmatchedPool)?;
@@ -647,7 +651,7 @@ impl Processor {
     Self::is_pool_owner(owner, pool_acc)?;
 
     let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.vault != *vault_acc.key {
       return Err(AppError::InvalidOwner.into());
     }
@@ -700,7 +704,7 @@ impl Processor {
     Self::is_pool_owner(owner, pool_acc)?;
 
     let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let seed: &[u8] = &Self::safe_seed(pool_acc, treasurer, program_id)?[..];
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.treasury_s != *treasury_s_acc.key
       || pool_data.treasury_a != *treasury_a_acc.key
       || pool_data.treasury_b != *treasury_b_acc.key

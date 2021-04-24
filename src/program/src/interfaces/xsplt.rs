@@ -15,7 +15,7 @@ impl XSPLT {
     owner: &AccountInfo<'a>,
     sysvar_rent_acc: &AccountInfo<'a>,
     splt_program: &AccountInfo<'a>,
-    seed: &[u8],
+    seed: &[&[&[u8]]],
   ) -> ProgramResult {
     let ix = ISPLT::initialize_account(
       *target_acc.key,
@@ -33,12 +33,13 @@ impl XSPLT {
         sysvar_rent_acc.clone(),
         splt_program.clone(),
       ],
-      &[&[&seed]],
+      seed,
     )?;
     Ok(())
   }
+
   ///
-  /// Initialize account
+  /// Transfer
   ///
   pub fn transfer<'a>(
     amount: u64,
@@ -46,7 +47,7 @@ impl XSPLT {
     dst_acc: &AccountInfo<'a>,
     owner: &AccountInfo<'a>,
     splt_program: &AccountInfo<'a>,
-    seed: &[u8],
+    seed: &[&[&[u8]]],
   ) -> ProgramResult {
     let ix = ISPLT::transfer(
       amount,
@@ -63,19 +64,20 @@ impl XSPLT {
         owner.clone(),
         splt_program.clone(),
       ],
-      &[&[&seed]],
+      seed,
     )?;
     Ok(())
   }
+
   ///
-  /// Initialize account
+  /// Close account
   ///
   pub fn close_account<'a>(
     src_acc: &AccountInfo<'a>,
     dst_acc: &AccountInfo<'a>,
     owner: &AccountInfo<'a>,
     splt_program: &AccountInfo<'a>,
-    seed: &[u8],
+    seed: &[&[&[u8]]],
   ) -> ProgramResult {
     let ix = ISPLT::close_account(*src_acc.key, *dst_acc.key, *owner.key, *splt_program.key)?;
     invoke_signed(
@@ -86,7 +88,7 @@ impl XSPLT {
         owner.clone(),
         splt_program.clone(),
       ],
-      &[&[&seed]],
+      seed,
     )?;
     Ok(())
   }

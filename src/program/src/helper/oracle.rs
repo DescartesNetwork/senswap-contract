@@ -1,9 +1,7 @@
-use num_bigint::BigUint;
-use num_traits::cast::ToPrimitive;
+use num_integer::Roots;
 
-const SINGLE_PRECISION: u128 = 1000000000; // 10^9
-const DOUBLE_PRECISION: u128 = 1000000000000000000; // 10^18
-const TRIPPLE_PRECISION: u128 = 1000000000000000000000000000; // 10^27
+const DOUBLE_PRECISION: u128 = 1000000000000; // 10^12
+const TRIPPLE_PRECISION: u128 = 1000000000000000000; // 10^18
 const FEE: u64 = 2500000; // 0.25%
 const EARNING: u64 = 500000; // 0.05%
 const DECIMALS: u64 = 1000000000; // 10^9
@@ -65,32 +63,34 @@ impl Oracle {
     if delta == 0 {
       return Some((0, 0, 0));
     }
-    // Precision configs
-    let double_precision = BigUint::from(DOUBLE_PRECISION);
-    let tripple_precision = BigUint::from(TRIPPLE_PRECISION);
     // Compute z
-    let cbrt_of_delta = (BigUint::from(delta) * tripple_precision.clone()).cbrt(); // Single precision
-    let cbrt_of_reserve = (BigUint::from(reserve_s) * tripple_precision.clone()).cbrt(); // Single precision
-    let z = (cbrt_of_delta.pow(2) * cbrt_of_reserve / tripple_precision.clone())
-      .to_u64()?
-      .checked_sub(reserve_s)?;
+    let cbrt_of_delta = (delta as u128).checked_mul(TRIPPLE_PRECISION)?.cbrt(); // Single precision
+    let cbrt_of_reserve = (reserve_s as u128).checked_mul(TRIPPLE_PRECISION)?.cbrt(); // Single precision
+    let z = cbrt_of_delta
+      .pow(2)
+      .checked_mul(cbrt_of_reserve)?
+      .checked_div(TRIPPLE_PRECISION)?
+      .checked_sub(reserve_s as u128)?;
     // Compute x
-    let sqrt_of_delta_plus_reserve =
-      ((BigUint::from(delta) + BigUint::from(reserve_s)) * double_precision.clone()).sqrt(); // Single precision
-    let sqrt_of_reserve = (BigUint::from(reserve_s) * double_precision.clone()).sqrt(); // Single precision
-    let x = (sqrt_of_delta_plus_reserve * sqrt_of_reserve / double_precision.clone())
-      .to_u64()?
-      .checked_sub(reserve_s)?;
+    let sqrt_of_delta_plus_reserve = (delta as u128)
+      .checked_add(reserve_s as u128)?
+      .checked_mul(DOUBLE_PRECISION)?
+      .sqrt(); // Single precision
+    let sqrt_of_reserve = (reserve_s as u128).checked_mul(DOUBLE_PRECISION)?.sqrt(); // Single precision
+    let x = sqrt_of_delta_plus_reserve
+      .checked_mul(sqrt_of_reserve)?
+      .checked_div(DOUBLE_PRECISION)?
+      .checked_sub(reserve_s as u128)?;
     // Compute y
     let y = z.checked_sub(x)?;
     // Compute s, a, b
-    let s = delta.checked_sub(z)?;
+    let s = (delta as u128).checked_sub(z)? as u64;
     let a = (reserve_a as u128)
-      .checked_mul(x as u128)?
-      .checked_div(reserve_s.checked_add(x)? as u128)? as u64;
+      .checked_mul(x)?
+      .checked_div((reserve_s as u128).checked_add(x)?)? as u64;
     let b = (reserve_b as u128)
-      .checked_mul(y as u128)?
-      .checked_div(reserve_s.checked_add(z)? as u128)? as u64;
+      .checked_mul(y)?
+      .checked_div((reserve_s as u128).checked_add(z)?)? as u64;
     // Return
     Some((s, a, b))
   }
@@ -107,8 +107,8 @@ impl Oracle {
     let (a2, b2, s2) = Self::_rake(delta_a, reserve_a, reserve_b, reserve_s)?;
     let (b3, s3, a3) = Self::_rake(delta_b, reserve_b, reserve_s, reserve_a)?;
     let s = s1.checked_add(s2)?.checked_add(s3)?;
-    let a = a1.checked_add(a2)?.checked_add(a3)?;
-    let b = b1.checked_add(b2)?.checked_add(b3)?;
+    let _a = a1.checked_add(a2)?.checked_add(a3)?;
+    let _b = b1.checked_add(b2)?.checked_add(b3)?;
     let new_reserve_s = reserve_s.checked_add(delta_s)?;
     let new_reserve_a = reserve_a.checked_add(delta_a)?;
     let new_reserve_b = reserve_b.checked_add(delta_b)?;
