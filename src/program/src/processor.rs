@@ -696,6 +696,7 @@ impl Processor {
     let treasury_a_acc = next_account_info(accounts_iter)?;
     let treasury_b_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
+    let vault_acc = next_account_info(accounts_iter)?;
     let treasurer = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
 
@@ -719,6 +720,7 @@ impl Processor {
     XSPLT::close_account(treasury_s_acc, dst_acc, treasurer, splt_program, seed)?;
     XSPLT::close_account(treasury_a_acc, dst_acc, treasurer, splt_program, seed)?;
     XSPLT::close_account(treasury_b_acc, dst_acc, treasurer, splt_program, seed)?;
+    XSPLT::close_account(vault_acc, dst_acc, treasurer, splt_program, seed)?;
     // Close pool
     let dst_lamports = dst_acc.lamports();
     **dst_acc.lamports.borrow_mut() = dst_lamports
