@@ -499,16 +499,9 @@ impl Processor {
 
     // Compute new state
     let new_bid_reserve = bid_reserve.checked_add(amount).ok_or(AppError::Overflow)?;
-    info!(&new_bid_reserve.to_string());
-    info!(&bid_reserve.to_string());
-    info!(&ask_reserve.to_string());
-    info!(&ask_code.to_string());
     let (new_ask_reserve, paid_amount, earning) =
       Oracle::curve_in_fee(new_bid_reserve, bid_reserve, ask_reserve, ask_code == 0)
         .ok_or(AppError::Overflow)?;
-    info!(&new_ask_reserve.to_string());
-    info!(&paid_amount.to_string());
-    info!(&earning.to_string());
 
     // Transfer bid
     XSPLT::transfer(amount, src_acc, treasury_bid_acc, owner, splt_program, &[])?;
