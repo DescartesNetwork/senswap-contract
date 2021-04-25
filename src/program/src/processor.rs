@@ -396,14 +396,14 @@ impl Processor {
     }
 
     // Compute corresponding paid-back reserve
-    let reserve_s = lpt;
-    let reserve_a = (pool_data.reserve_a as u128)
-      .checked_mul(lpt as u128)
+    let delta_s = lpt;
+    let delta_a = (pool_data.reserve_a as u128)
+      .checked_mul(delta_s as u128)
       .ok_or(AppError::Overflow)?
       .checked_div(pool_data.reserve_s as u128)
       .ok_or(AppError::Overflow)? as u64;
-    let reserve_b = (pool_data.reserve_b as u128)
-      .checked_mul(lpt as u128)
+    let delta_b = (pool_data.reserve_b as u128)
+      .checked_mul(delta_s as u128)
       .ok_or(AppError::Overflow)?
       .checked_div(pool_data.reserve_s as u128)
       .ok_or(AppError::Overflow)? as u64;
@@ -413,20 +413,20 @@ impl Processor {
     // Update pool data
     pool_data.reserve_s = pool_data
       .reserve_s
-      .checked_sub(reserve_s)
+      .checked_sub(delta_s)
       .ok_or(AppError::Overflow)?;
     pool_data.reserve_a = pool_data
       .reserve_a
-      .checked_sub(reserve_a)
+      .checked_sub(delta_a)
       .ok_or(AppError::Overflow)?;
     pool_data.reserve_b = pool_data
       .reserve_b
-      .checked_sub(reserve_b)
+      .checked_sub(delta_b)
       .ok_or(AppError::Overflow)?;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Withdraw token
     XSPLT::transfer(
-      reserve_s,
+      delta_s,
       treasury_s_acc,
       dst_s_acc,
       treasurer,
@@ -434,7 +434,7 @@ impl Processor {
       seed,
     )?;
     XSPLT::transfer(
-      reserve_a,
+      delta_a,
       treasury_a_acc,
       dst_a_acc,
       treasurer,
@@ -442,7 +442,7 @@ impl Processor {
       seed,
     )?;
     XSPLT::transfer(
-      reserve_b,
+      delta_b,
       treasury_b_acc,
       dst_b_acc,
       treasurer,
@@ -459,11 +459,11 @@ impl Processor {
     let pool_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
 
-    let treasury_bid_acc = next_account_info(accounts_iter)?;
     let src_acc = next_account_info(accounts_iter)?;
+    let treasury_bid_acc = next_account_info(accounts_iter)?;
 
-    let treasury_ask_acc = next_account_info(accounts_iter)?;
     let dst_acc = next_account_info(accounts_iter)?;
+    let treasury_ask_acc = next_account_info(accounts_iter)?;
 
     let treasury_sen_acc = next_account_info(accounts_iter)?;
 
@@ -499,9 +499,16 @@ impl Processor {
 
     // Compute new state
     let new_bid_reserve = bid_reserve.checked_add(amount).ok_or(AppError::Overflow)?;
+    info!(&new_bid_reserve.to_string());
+    info!(&bid_reserve.to_string());
+    info!(&ask_reserve.to_string());
+    info!(&ask_code.to_string());
     let (new_ask_reserve, paid_amount, earning) =
       Oracle::curve_in_fee(new_bid_reserve, bid_reserve, ask_reserve, ask_code == 0)
         .ok_or(AppError::Overflow)?;
+    info!(&new_ask_reserve.to_string());
+    info!(&paid_amount.to_string());
+    info!(&earning.to_string());
 
     // Transfer bid
     XSPLT::transfer(amount, src_acc, treasury_bid_acc, owner, splt_program, &[])?;

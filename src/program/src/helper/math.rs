@@ -1,5 +1,3 @@
-use solana_program::log::sol_log_compute_units;
-
 ///
 /// Implement square/cubic root for u128
 ///
@@ -29,22 +27,16 @@ impl Roots for u128 {
   }
 
   ///
-  /// Newton's method
+  /// Newton's method (with a selectively initial guesses)
   ///
   fn cbrt(self) -> Self {
-    if self < 1 {
-      return 0;
-    }
-    if self < 8 {
-      return 1;
-    }
-    if self < 27 {
-      return 2;
+    if self < 2 {
+      return self;
     }
 
-    let mut end = self.sqrt();
+    let bits = (128 - self.leading_zeros()) / 3;
+    let mut end: u128 = 1 << bits;
     loop {
-      sol_log_compute_units();
       let next = (self / end.pow(2) + 2 * end) / 3;
       if end != next {
         end = next;

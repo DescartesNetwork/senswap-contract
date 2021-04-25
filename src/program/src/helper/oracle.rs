@@ -30,24 +30,22 @@ impl Oracle {
     is_exempted: bool,
   ) -> Option<(u64, u64, u64)> {
     let new_ask_reserve_without_fee = Self::curve(new_bid_reserve, bid_reserve, ask_reserve)?;
-    let fee = (new_ask_reserve_without_fee as u128)
+    let paid_amount_without_fee = ask_reserve.checked_sub(new_ask_reserve_without_fee)?;
+
+    let fee = (paid_amount_without_fee as u128)
       .checked_mul(FEE as u128)?
       .checked_div(DECIMALS as u128)? as u64;
     let mut earning: u64 = 0;
     if !is_exempted {
-      earning = (new_ask_reserve_without_fee as u128)
+      earning = (paid_amount_without_fee as u128)
         .checked_mul(EARNING as u128)?
         .checked_div(DECIMALS as u128)? as u64;
     }
 
-    let new_ask_reserve = new_ask_reserve_without_fee
+    let paid_amount = paid_amount_without_fee
       .checked_sub(fee)?
       .checked_sub(earning)?;
-    if new_ask_reserve == 0 {
-      return None;
-    }
-    let paid_amount = new_ask_reserve.checked_sub(ask_reserve)?;
-
+    let new_ask_reserve = new_ask_reserve_without_fee.checked_add(fee)?;
     Some((new_ask_reserve, paid_amount, earning))
   }
 
@@ -64,9 +62,12 @@ impl Oracle {
       return Some((0, 0, 0));
     }
     // Compute z
-    let cbrt_of_delta = (delta as u128).checked_mul(TRIPPLE_PRECISION)?.cbrt(); // Single precision
+    let cbrt_of_delta_plus_reserve = (delta as u128)
+      .checked_add(reserve_s as u128)?
+      .checked_mul(TRIPPLE_PRECISION)?
+      .cbrt(); // Single precision
     let cbrt_of_reserve = (reserve_s as u128).checked_mul(TRIPPLE_PRECISION)?.cbrt(); // Single precision
-    let z = cbrt_of_delta
+    let z = cbrt_of_delta_plus_reserve
       .pow(2)
       .checked_mul(cbrt_of_reserve)?
       .checked_div(TRIPPLE_PRECISION)?
