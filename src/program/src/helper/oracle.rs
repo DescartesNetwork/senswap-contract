@@ -1,4 +1,5 @@
 use crate::helper::math::Roots;
+use solana_program::log::sol_log_compute_units;
 
 const DOUBLE_PRECISION: u128 = 1000000000000; // 10^12
 const TRIPPLE_PRECISION: u128 = 1000000000000000000; // 10^18
@@ -104,9 +105,13 @@ impl Oracle {
     reserve_a: u64,
     reserve_b: u64,
   ) -> Option<(u64, u64, u64, u64)> {
+    sol_log_compute_units();
     let (s1, a1, b1) = Self::_rake(delta_s, reserve_s, reserve_a, reserve_b)?;
+    sol_log_compute_units();
     let (a2, b2, s2) = Self::_rake(delta_a, reserve_a, reserve_b, reserve_s)?;
+    sol_log_compute_units();
     let (b3, s3, a3) = Self::_rake(delta_b, reserve_b, reserve_s, reserve_a)?;
+    sol_log_compute_units();
     let s = s1.checked_add(s2)?.checked_add(s3)?;
     let _a = a1.checked_add(a2)?.checked_add(a3)?;
     let _b = b1.checked_add(b2)?.checked_add(b3)?;
