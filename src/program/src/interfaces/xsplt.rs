@@ -107,7 +107,7 @@ impl XSPLT {
     splt_program: &AccountInfo<'a>,
     seed: &[&[&[u8]]],
   ) -> ProgramResult {
-    let ix = ISPLT::transfer(
+    let ix = ISPLT::mint_to(
       amount,
       *mint_acc.key,
       *dst_acc.key,
@@ -137,7 +137,7 @@ impl XSPLT {
     splt_program: &AccountInfo<'a>,
     seed: &[&[&[u8]]],
   ) -> ProgramResult {
-    let ix = ISPLT::transfer(
+    let ix = ISPLT::burn(
       amount,
       *src_acc.key,
       *mint_acc.key,

@@ -30,8 +30,6 @@ pub enum AppInstruction {
     amount: u64,
   },
   CloseLPT,
-  ClosePool,
-  TransferLPTOwnership,
   TransferPoolOwnership,
 }
 impl AppInstruction {
@@ -120,9 +118,7 @@ impl AppInstruction {
         Self::Earn { amount }
       }
       9 => Self::CloseLPT,
-      10 => Self::ClosePool,
-      11 => Self::TransferLPTOwnership,
-      12 => Self::TransferPoolOwnership,
+      10 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

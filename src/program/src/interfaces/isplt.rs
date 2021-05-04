@@ -24,6 +24,8 @@ impl ISPLT {
     data.push(0);
     data.push(decimals);
     data.extend_from_slice(&owner.to_bytes());
+    // No freeze authority
+    data.push(0);
     // Build accounts
     let mut accounts = Vec::with_capacity(2);
     accounts.push(AccountMeta::new(mint_acc, false));
