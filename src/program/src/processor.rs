@@ -56,11 +56,6 @@ impl Processor {
         Self::swap(amount, program_id, accounts)
       }
 
-      AppInstruction::Transfer { lpt } => {
-        info!("Calling Transfer function");
-        Self::transfer(lpt, program_id, accounts)
-      }
-
       AppInstruction::FreezePool {} => {
         info!("Calling FreezePool function");
         Self::freeze_pool(program_id, accounts)
@@ -523,18 +518,6 @@ impl Processor {
 
     // Save final data
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
-  pub fn transfer(lpt: u64, _program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let src_lpt_acc = next_account_info(accounts_iter)?;
-    let dst_lpt_acc = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-
-    XSPLT::transfer(lpt, src_lpt_acc, dst_lpt_acc, owner, splt_program, &[])?;
 
     Ok(())
   }

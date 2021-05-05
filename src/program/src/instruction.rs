@@ -20,9 +20,6 @@ pub enum AppInstruction {
   Swap {
     amount: u64,
   },
-  Transfer {
-    lpt: u64,
-  },
   FreezePool,
   ThawPool,
   Earn {
@@ -96,17 +93,9 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Swap { amount }
       }
-      4 => {
-        let lpt = rest
-          .get(..8)
-          .and_then(|slice| slice.try_into().ok())
-          .map(u64::from_le_bytes)
-          .ok_or(AppError::InvalidInstruction)?;
-        Self::Transfer { lpt }
-      }
-      5 => Self::FreezePool,
-      6 => Self::ThawPool,
-      7 => {
+      4 => Self::FreezePool,
+      5 => Self::ThawPool,
+      6 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -114,7 +103,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Earn { amount }
       }
-      8 => Self::TransferPoolOwnership,
+      7 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
