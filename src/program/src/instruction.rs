@@ -31,7 +31,6 @@ pub enum AppInstruction {
   },
   CloseLPT,
   TransferPoolOwnership,
-  PreInitializePool,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -120,7 +119,6 @@ impl AppInstruction {
       }
       9 => Self::CloseLPT,
       10 => Self::TransferPoolOwnership,
-      11 => Self::PreInitializePool,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
