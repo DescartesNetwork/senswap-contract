@@ -2,7 +2,10 @@ use crate::error::AppError;
 use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::{xsplata::XSPLATA, xsplt::XSPLT};
-use crate::schema::pool::{Pool, PoolState};
+use crate::schema::{
+  mint::Mint,
+  pool::{Pool, PoolState},
+};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
@@ -24,6 +27,11 @@ impl Processor {
   ) -> ProgramResult {
     let instruction = AppInstruction::unpack(instruction_data)?;
     match instruction {
+      AppInstruction::PreInitializePool {} => {
+        info!("Calling PreInitializePool function");
+        Self::pre_initialize_pool(program_id, accounts)
+      }
+
       AppInstruction::InitializePool {
         reserve_s,
         reserve_a,
@@ -93,6 +101,53 @@ impl Processor {
   /// Controllers
   ///
 
+  pub fn pre_initialize_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let owner = next_account_info(accounts_iter)?;
+    let pool_acc = next_account_info(accounts_iter)?;
+    let lpt_acc = next_account_info(accounts_iter)?;
+    let mint_lpt_acc = next_account_info(accounts_iter)?;
+
+    let treasurer = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
+    let splt_program = next_account_info(accounts_iter)?;
+    let sysvar_rent_acc = next_account_info(accounts_iter)?;
+    let splata_program = next_account_info(accounts_iter)?;
+
+    Self::is_program(program_id, &[pool_acc])?;
+    Self::is_signer(&[owner, pool_acc, mint_lpt_acc])?;
+
+    let pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
+    if pool_data.is_initialized() {
+      return Err(AppError::ConstructorOnce.into());
+    }
+
+    // Initialize mint LPT
+    XSPLT::initialize_mint(
+      9,
+      mint_lpt_acc,
+      treasurer,
+      sysvar_rent_acc,
+      splt_program,
+      seed,
+    )?;
+    // Initialize associated LPT
+    XSPLATA::initialize_account(
+      owner,
+      lpt_acc,
+      owner,
+      mint_lpt_acc,
+      system_program,
+      splt_program,
+      sysvar_rent_acc,
+      splata_program,
+      &[],
+    )?;
+
+    Ok(())
+  }
+
   pub fn initialize_pool(
     reserve_s: u64,
     reserve_a: u64,
@@ -120,10 +175,8 @@ impl Processor {
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
     let treasurer = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    let splata_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[
@@ -137,8 +190,9 @@ impl Processor {
     ])?;
 
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+    let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if pool_data.is_initialized() {
+    if pool_data.is_initialized() || mint_lpt_data.supply > 0 {
       return Err(AppError::ConstructorOnce.into());
     }
     if reserve_s == 0 || reserve_a == 0 || reserve_b == 0 {
@@ -202,27 +256,6 @@ impl Processor {
       &[],
     )?;
 
-    // Initialize mint LPT
-    XSPLT::initialize_mint(
-      9,
-      mint_lpt_acc,
-      treasurer,
-      sysvar_rent_acc,
-      splt_program,
-      seed,
-    )?;
-    // Initialize associated LPT
-    XSPLATA::initialize_account(
-      owner,
-      lpt_acc,
-      owner,
-      mint_lpt_acc,
-      system_program,
-      splt_program,
-      sysvar_rent_acc,
-      splata_program,
-      &[],
-    )?;
     // Mint LPT
     XSPLT::mint_to(
       reserve_s,
