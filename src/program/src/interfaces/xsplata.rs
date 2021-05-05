@@ -1,6 +1,6 @@
 use crate::interfaces::isplata::ISPLATA;
 use solana_program::{
-  account_info::AccountInfo, entrypoint::ProgramResult, info, program::invoke_signed,
+  account_info::AccountInfo, entrypoint::ProgramResult, program::invoke_signed,
 };
 
 pub struct XSPLATA {}
@@ -30,7 +30,6 @@ impl XSPLATA {
       *sysvar_rent_acc.key,
       *splata_program.key,
     )?;
-    info!("Invoke");
     invoke_signed(
       &ix,
       &[
@@ -45,7 +44,6 @@ impl XSPLATA {
       ],
       seed,
     )?;
-    info!("No error");
     Ok(())
   }
 }
