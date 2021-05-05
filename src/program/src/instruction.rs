@@ -9,7 +9,6 @@ pub enum AppInstruction {
     reserve_a: u64,
     reserve_b: u64,
   },
-  InitializeLPT,
   AddLiquidity {
     delta_s: u64,
     delta_a: u64,
@@ -29,7 +28,6 @@ pub enum AppInstruction {
   Earn {
     amount: u64,
   },
-  CloseLPT,
   TransferPoolOwnership,
 }
 impl AppInstruction {
@@ -60,8 +58,7 @@ impl AppInstruction {
           reserve_b,
         }
       }
-      1 => Self::InitializeLPT,
-      2 => {
+      1 => {
         let delta_s = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -83,7 +80,7 @@ impl AppInstruction {
           delta_b,
         }
       }
-      3 => {
+      2 => {
         let lpt = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -91,7 +88,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { lpt }
       }
-      4 => {
+      3 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -99,7 +96,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Swap { amount }
       }
-      5 => {
+      4 => {
         let lpt = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -107,9 +104,9 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Transfer { lpt }
       }
-      6 => Self::FreezePool,
-      7 => Self::ThawPool,
-      8 => {
+      5 => Self::FreezePool,
+      6 => Self::ThawPool,
+      7 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -117,8 +114,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Earn { amount }
       }
-      9 => Self::CloseLPT,
-      10 => Self::TransferPoolOwnership,
+      8 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

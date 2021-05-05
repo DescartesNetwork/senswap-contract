@@ -1,12 +1,16 @@
 use crate::error::AppError;
 use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
-use crate::interfaces::{xsplata::XSPLATA, xsplt::XSPLT};
-use crate::schema::pool::{Pool, PoolState};
+use crate::interfaces::xsplt::XSPLT;
+use crate::schema::{
+  mint::Mint,
+  pool::{Pool, PoolState},
+};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
   info,
+  program_option::COption,
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
 };
@@ -31,11 +35,6 @@ impl Processor {
       } => {
         info!("Calling InitializePool function");
         Self::initialize_pool(reserve_s, reserve_a, reserve_b, program_id, accounts)
-      }
-
-      AppInstruction::InitializeLPT {} => {
-        info!("Calling InitializeLPT function");
-        Self::initialize_lpt(program_id, accounts)
       }
 
       AppInstruction::AddLiquidity {
@@ -77,11 +76,6 @@ impl Processor {
         Self::earn(amount, program_id, accounts)
       }
 
-      AppInstruction::CloseLPT {} => {
-        info!("Calling CloseLPT function");
-        Self::close_lpt(program_id, accounts)
-      }
-
       AppInstruction::TransferPoolOwnership {} => {
         info!("Calling TransferPoolOwnership function");
         Self::transfer_pool_ownership(program_id, accounts)
@@ -120,10 +114,8 @@ impl Processor {
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
     let treasurer = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    let splata_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[
@@ -137,9 +129,18 @@ impl Processor {
     ])?;
 
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+    let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
+    }
+    if !mint_lpt_data.is_initialized()
+      || mint_lpt_data.supply > 0
+      || mint_lpt_data.freeze_authority != COption::None
+      || *mint_s_acc.key == *mint_a_acc.key
+      || *mint_s_acc.key == *mint_b_acc.key
+    {
+      return Err(AppError::InvalidLPMint.into());
     }
     if reserve_s == 0 || reserve_a == 0 || reserve_b == 0 {
       return Err(AppError::ZeroValue.into());
@@ -202,27 +203,6 @@ impl Processor {
       &[],
     )?;
 
-    // Initialize mint LPT
-    XSPLT::initialize_mint(
-      9,
-      mint_lpt_acc,
-      treasurer,
-      sysvar_rent_acc,
-      splt_program,
-      seed,
-    )?;
-    // Initialize associated LPT
-    XSPLATA::initialize_account(
-      owner,
-      lpt_acc,
-      owner,
-      mint_lpt_acc,
-      system_program,
-      splt_program,
-      sysvar_rent_acc,
-      splata_program,
-      &[],
-    )?;
     // Mint LPT
     XSPLT::mint_to(
       reserve_s,
@@ -258,31 +238,6 @@ impl Processor {
     pool_data.treasury_b = *treasury_b_acc.key;
     pool_data.reserve_b = reserve_b;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
-  pub fn initialize_lpt(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let lpt_acc = next_account_info(accounts_iter)?;
-    let mint_lpt_acc = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-    let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    let splata_program = next_account_info(accounts_iter)?;
-
-    XSPLATA::initialize_account(
-      owner,
-      lpt_acc,
-      owner,
-      mint_lpt_acc,
-      system_program,
-      splt_program,
-      sysvar_rent_acc,
-      splata_program,
-      &[],
-    )?;
 
     Ok(())
   }
@@ -639,18 +594,6 @@ impl Processor {
     }
     // Transfer earning
     XSPLT::transfer(amount, vault_acc, dst_acc, treasurer, splt_program, seed)?;
-
-    Ok(())
-  }
-
-  pub fn close_lpt(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let lpt_acc = next_account_info(accounts_iter)?;
-    let dst_acc = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-
-    XSPLT::close_account(lpt_acc, dst_acc, owner, splt_program, &[])?;
 
     Ok(())
   }
