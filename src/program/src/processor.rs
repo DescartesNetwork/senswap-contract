@@ -116,7 +116,6 @@ impl Processor {
     Self::is_signer(&[
       owner,
       pool_acc,
-      mint_lpt_acc,
       vault_acc,
       treasury_s_acc,
       treasury_a_acc,
