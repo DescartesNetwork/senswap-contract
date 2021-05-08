@@ -1,3 +1,5 @@
+#![feature(array_map, array_zip)]
+
 pub mod entrypoint;
 pub mod error;
 pub mod helper;

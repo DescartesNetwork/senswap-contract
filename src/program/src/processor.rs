@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::helper::oracle::Oracle;
+use crate::helper::{oracle::Oracle, pubutil::Boolean};
 use crate::instruction::AppInstruction;
 use crate::interfaces::xsplt::XSPLT;
 use crate::schema::{
@@ -130,7 +130,7 @@ impl Processor {
     }
     if !mint_lpt_data.is_initialized()
       || mint_lpt_data.supply > 0
-      || mint_lpt_data.freeze_authority != COption::None
+      || mint_lpt_data.freeze_authority != COption::Some(pool_acc.key.xor(treasurer.key))
       || *mint_s_acc.key == *mint_a_acc.key
       || *mint_s_acc.key == *mint_b_acc.key
     {
