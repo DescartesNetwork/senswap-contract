@@ -106,7 +106,7 @@ impl Oracle {
     let rs = rs.checked_add(delta_s)?;
     let (_a2, _b2, s2) = Self::_rake(delta_a, ra, rb, rs)?;
     let ra = ra.checked_add(delta_a)?;
-    let (_b3, s3, _a3) = Self::_rake(delta_b, ra, rs, ra)?;
+    let (_b3, s3, _a3) = Self::_rake(delta_b, rb, rs, ra)?;
     let rb = rb.checked_add(delta_b)?;
     let s = s1.checked_add(s2)?.checked_add(s3)?;
 
