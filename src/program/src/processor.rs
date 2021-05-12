@@ -264,7 +264,7 @@ impl Processor {
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
 
-    let mint_lpt_data = Mint::unpack(&lpt_acc.data.borrow())?;
+    let mint_lpt_data = Mint::unpack(&mint_lpt_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.mint_lpt != *mint_lpt_acc.key
