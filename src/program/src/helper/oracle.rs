@@ -117,7 +117,9 @@ impl Oracle {
     let rs_prime = rs_prime.checked_add(s3)?;
     let rb = rb.checked_add(delta_b)?;
 
-    let lpt = s1.checked_mul(reserve_lpt)?.checked_div(rs_prime)?;
+    let lpt = (s1 as u128)
+      .checked_mul(reserve_lpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
 
     Some((lpt, rs, ra, rb))
   }
