@@ -112,7 +112,7 @@ impl Oracle {
     let rb = rb.checked_add(delta_b)?;
 
     let s_prime = s1.checked_add(s2)?.checked_add(s3)?;
-    let rs_prime = rs.checked_sub(delta_s)?.checked_sub(s_prime)?;
+    let rs_prime = rs.checked_add(delta_s)?.checked_sub(s_prime)?;
 
     let lpt = (s_prime as u128)
       .checked_mul(reserve_lpt as u128)?
