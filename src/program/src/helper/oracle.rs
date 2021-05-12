@@ -100,24 +100,21 @@ impl Oracle {
     reserve_b: u64,
     reserve_lpt: u64,
   ) -> Option<(u64, u64, u64, u64)> {
-    let rs_prime = reserve_s;
     let rs = reserve_s;
     let ra = reserve_a;
     let rb = reserve_b;
 
     let (s1, _a1, _b1) = Self::_rake(delta_s, rs, ra, rb)?;
-    let rs_prime = rs_prime.checked_add(delta_s)?.checked_sub(s1)?;
     let rs = rs.checked_add(delta_s)?;
-
     let (_a2, _b2, s2) = Self::_rake(delta_a, ra, rb, rs)?;
-    let rs_prime = rs_prime.checked_add(s2)?;
     let ra = ra.checked_add(delta_a)?;
-
     let (_b3, s3, _a3) = Self::_rake(delta_b, rb, rs, ra)?;
-    let rs_prime = rs_prime.checked_add(s3)?;
     let rb = rb.checked_add(delta_b)?;
 
-    let lpt = (s1 as u128)
+    let s_prime = s1.checked_add(s2)?.checked_add(s3)?;
+    let rs_prime = rs.checked_sub(delta_s)?.checked_sub(s_prime)?;
+
+    let lpt = (s_prime as u128)
       .checked_mul(reserve_lpt as u128)?
       .checked_div(rs_prime as u128)? as u64;
 
