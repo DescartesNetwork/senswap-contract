@@ -278,20 +278,16 @@ impl Processor {
       return Err(AppError::ZeroValue.into());
     }
 
-    let (s, reserve_s, reserve_a, reserve_b) = Oracle::rake(
+    let (lpt, reserve_s, reserve_a, reserve_b) = Oracle::rake(
       delta_s,
       delta_a,
       delta_b,
       pool_data.reserve_s,
       pool_data.reserve_a,
       pool_data.reserve_b,
+      mint_lpt_data.supply,
     )
     .ok_or(AppError::Overflow)?;
-    let lpt = (s as u128)
-      .checked_mul(mint_lpt_data.supply as u128)
-      .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve_s as u128)
-      .ok_or(AppError::Overflow)? as u64;
 
     // Deposit token
     if delta_s > 0 {
