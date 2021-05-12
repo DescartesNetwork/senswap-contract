@@ -112,24 +112,4 @@ impl Oracle {
 
     Some((s, rs, ra, rb))
   }
-
-  pub fn rake_in_fee(
-    delta_s: u64,
-    delta_a: u64,
-    delta_b: u64,
-    reserve_s: u64,
-    reserve_a: u64,
-    reserve_b: u64,
-  ) -> Option<(u64, u64, u64, u64)> {
-    let (s, new_reserve_s, new_reserve_a, new_reserve_b) =
-      Self::rake(delta_s, delta_a, delta_b, reserve_s, reserve_a, reserve_b)?;
-
-    let fee = (s as u128)
-      .checked_mul(FEE as u128)?
-      .checked_div(DECIMALS as u128)? as u64;
-    let s_in_fee = s.checked_sub(fee)?;
-    let new_reserve_s_in_fee = new_reserve_s.checked_add(fee)?;
-
-    Some((s_in_fee, new_reserve_s_in_fee, new_reserve_a, new_reserve_b))
-  }
 }

@@ -264,6 +264,7 @@ impl Processor {
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
 
+    let mint_lpt_data = Mint::unpack(&lpt_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.mint_lpt != *mint_lpt_acc.key
@@ -277,7 +278,7 @@ impl Processor {
       return Err(AppError::ZeroValue.into());
     }
 
-    let (lpt, reserve_s, reserve_a, reserve_b) = Oracle::rake_in_fee(
+    let (s, reserve_s, reserve_a, reserve_b) = Oracle::rake(
       delta_s,
       delta_a,
       delta_b,
@@ -286,6 +287,11 @@ impl Processor {
       pool_data.reserve_b,
     )
     .ok_or(AppError::Overflow)?;
+    let lpt = (s as u128)
+      .checked_mul(mint_lpt_data.supply as u128)
+      .ok_or(AppError::Overflow)?
+      .checked_div(pool_data.reserve_s as u128)
+      .ok_or(AppError::Overflow)? as u64;
 
     // Deposit token
     if delta_s > 0 {
@@ -344,6 +350,7 @@ impl Processor {
     Self::is_signer(&[owner])?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
 
+    let mint_lpt_data = Mint::unpack(&mint_lpt_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     if pool_data.mint_lpt != *mint_lpt_acc.key
       || pool_data.treasury_s != *treasury_s_acc.key
@@ -360,16 +367,20 @@ impl Processor {
     }
 
     // Compute corresponding paid-back reserve
-    let delta_s = lpt;
-    let delta_a = (pool_data.reserve_a as u128)
-      .checked_mul(delta_s as u128)
+    let delta_s = (lpt as u128)
+      .checked_mul(pool_data.reserve_s as u128)
       .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve_s as u128)
+      .checked_div(mint_lpt_data.supply as u128)
       .ok_or(AppError::Overflow)? as u64;
-    let delta_b = (pool_data.reserve_b as u128)
-      .checked_mul(delta_s as u128)
+    let delta_a = (lpt as u128)
+      .checked_mul(pool_data.reserve_a as u128)
       .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve_s as u128)
+      .checked_div(mint_lpt_data.supply as u128)
+      .ok_or(AppError::Overflow)? as u64;
+    let delta_b = (lpt as u128)
+      .checked_mul(pool_data.reserve_b as u128)
+      .ok_or(AppError::Overflow)?
+      .checked_div(mint_lpt_data.supply as u128)
       .ok_or(AppError::Overflow)? as u64;
     // Burn LPT
     XSPLT::burn(lpt, lpt_acc, mint_lpt_acc, owner, splt_program, seed)?;
