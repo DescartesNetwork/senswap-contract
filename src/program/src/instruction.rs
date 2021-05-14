@@ -26,6 +26,7 @@ pub enum AppInstruction {
     amount: u64,
   },
   TransferPoolOwnership,
+  TransferVault,
 }
 impl AppInstruction {
   pub fn unpack(instruction: &[u8]) -> Result<Self, ProgramError> {
@@ -104,6 +105,7 @@ impl AppInstruction {
         Self::Earn { amount }
       }
       7 => Self::TransferPoolOwnership,
+      8 => Self::TransferVault,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }

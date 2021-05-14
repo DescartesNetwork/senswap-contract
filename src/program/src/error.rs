@@ -33,8 +33,8 @@ pub enum AppError {
   ZeroValue,
   #[error("Insufficient funds")]
   InsufficientFunds,
-  #[error("Invalid LP mint")]
-  InvalidLPMint,
+  #[error("Invalid mint")]
+  InvalidMint,
 }
 
 impl From<AppError> for ProgramError {
@@ -65,7 +65,7 @@ impl PrintProgramError for AppError {
       AppError::FrozenPool => info!("Error: Pool frozen"),
       AppError::ZeroValue => info!("Error: Zero value"),
       AppError::InsufficientFunds => info!("Error: Insufficient funds"),
-      AppError::InvalidLPMint => info!("Error: Invalid LP mint"),
+      AppError::InvalidMint => info!("Error: Invalid mint"),
     }
   }
 }
