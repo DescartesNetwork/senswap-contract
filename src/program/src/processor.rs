@@ -3,7 +3,6 @@ use crate::helper::{oracle::Oracle, pubutil::Boolean};
 use crate::instruction::AppInstruction;
 use crate::interfaces::xsplt::XSPLT;
 use crate::schema::{
-  account::Account,
   mint::Mint,
   pool::{Pool, PoolState},
 };
