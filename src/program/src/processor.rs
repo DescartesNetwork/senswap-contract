@@ -76,11 +76,6 @@ impl Processor {
         info!("Calling TransferPoolOwnership function");
         Self::transfer_pool_ownership(program_id, accounts)
       }
-
-      AppInstruction::TransferVault {} => {
-        info!("Calling TransferVault function");
-        Self::transfer_vault(program_id, accounts)
-      }
     }
   }
 
@@ -612,29 +607,6 @@ impl Processor {
     // Update pool data
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     pool_data.owner = *new_owner.key;
-    Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
-
-    Ok(())
-  }
-
-  pub fn transfer_vault(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let pool_acc = next_account_info(accounts_iter)?;
-    let new_vault = next_account_info(accounts_iter)?;
-
-    Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[owner])?;
-    Self::is_pool_owner(owner, pool_acc)?;
-
-    // Update pool data
-    let vault_data = Account::unpack(&new_vault.data.borrow())?;
-    let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    if vault_data.mint != pool_data.mint_s {
-      return Err(AppError::InvalidMint.into());
-    }
-
-    pool_data.vault = *new_vault.key;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
     Ok(())
