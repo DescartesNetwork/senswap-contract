@@ -393,6 +393,9 @@ impl Processor {
       .reserve_b
       .checked_sub(delta_b)
       .ok_or(AppError::Overflow)?;
+    if pool_data.reserve_s == 0 {
+      pool_data.state = PoolState::Frozen;
+    }
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Withdraw token
     XSPLT::transfer(
