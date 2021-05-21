@@ -35,6 +35,8 @@ pub enum AppError {
   InsufficientFunds,
   #[error("Invalid mint")]
   InvalidMint,
+  #[error("Exceed limit")]
+  ExceedLimit,
 }
 
 impl From<AppError> for ProgramError {
@@ -66,6 +68,7 @@ impl PrintProgramError for AppError {
       AppError::ZeroValue => info!("Error: Zero value"),
       AppError::InsufficientFunds => info!("Error: Insufficient funds"),
       AppError::InvalidMint => info!("Error: Invalid mint"),
+      AppError::ExceedLimit => info!("Error: Exceed limit"),
     }
   }
 }

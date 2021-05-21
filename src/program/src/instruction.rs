@@ -19,6 +19,7 @@ pub enum AppInstruction {
   },
   Swap {
     amount: u64,
+    limit: u64,
   },
   FreezePool,
   ThawPool,
@@ -91,7 +92,12 @@ impl AppInstruction {
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::Swap { amount }
+        let limit = rest
+          .get(8..16)
+          .and_then(|slice| slice.try_into().ok())
+          .map(u64::from_le_bytes)
+          .ok_or(AppError::InvalidInstruction)?;
+        Self::Swap { amount, limit }
       }
       4 => Self::FreezePool,
       5 => Self::ThawPool,

@@ -51,9 +51,9 @@ impl Processor {
         Self::remove_liquidity(lpt, program_id, accounts)
       }
 
-      AppInstruction::Swap { amount } => {
+      AppInstruction::Swap { amount, limit } => {
         info!("Calling Swap function");
-        Self::swap(amount, program_id, accounts)
+        Self::swap(amount, limit, program_id, accounts)
       }
 
       AppInstruction::FreezePool {} => {
@@ -427,9 +427,14 @@ impl Processor {
     Ok(())
   }
 
-  pub fn swap(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn swap(
+    amount: u64,
+    limit: u64,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+  ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
+    let payer = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
 
@@ -445,7 +450,7 @@ impl Processor {
     let splt_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[owner])?;
+    Self::is_signer(&[payer])?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
@@ -476,9 +481,12 @@ impl Processor {
     let (new_ask_reserve, paid_amount, earning) =
       Oracle::curve_in_fee(new_bid_reserve, bid_reserve, ask_reserve, ask_code == 0)
         .ok_or(AppError::Overflow)?;
+    if paid_amount < limit {
+      return Err(AppError::ExceedLimit.into());
+    }
 
     // Transfer bid
-    XSPLT::transfer(amount, src_acc, treasury_bid_acc, owner, splt_program, &[])?;
+    XSPLT::transfer(amount, src_acc, treasury_bid_acc, payer, splt_program, &[])?;
     // Update bid pool data
     match bid_code {
       0 => pool_data.reserve_s = new_bid_reserve,
