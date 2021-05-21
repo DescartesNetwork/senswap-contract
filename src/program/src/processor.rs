@@ -90,6 +90,7 @@ impl Processor {
     accounts: &[AccountInfo],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
+    let payer = next_account_info(accounts_iter)?;
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
@@ -114,7 +115,7 @@ impl Processor {
 
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[
-      owner,
+      payer,
       pool_acc,
       vault_acc,
       treasury_s_acc,
@@ -154,7 +155,7 @@ impl Processor {
       reserve_s,
       src_s_acc,
       treasury_s_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
@@ -173,7 +174,7 @@ impl Processor {
       reserve_a,
       src_a_acc,
       treasury_a_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
@@ -192,7 +193,7 @@ impl Processor {
       reserve_b,
       src_b_acc,
       treasury_b_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
