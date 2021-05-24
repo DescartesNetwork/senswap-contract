@@ -293,24 +293,15 @@ impl Processor {
     // Deposit token
     if delta_s > 0 {
       XSPLT::transfer(delta_s, src_s_acc, treasury_s_acc, owner, splt_program, &[])?;
-      pool_data.reserve_s = pool_data
-        .reserve_s
-        .checked_add(reserve_s)
-        .ok_or(AppError::Overflow)?;
+      pool_data.reserve_s = reserve_s;
     }
     if delta_a > 0 {
       XSPLT::transfer(delta_a, src_a_acc, treasury_a_acc, owner, splt_program, &[])?;
-      pool_data.reserve_a = pool_data
-        .reserve_a
-        .checked_add(reserve_a)
-        .ok_or(AppError::Overflow)?;
+      pool_data.reserve_a = reserve_a;
     }
     if delta_b > 0 {
       XSPLT::transfer(delta_b, src_b_acc, treasury_b_acc, owner, splt_program, &[])?;
-      pool_data.reserve_b = pool_data
-        .reserve_b
-        .checked_add(reserve_b)
-        .ok_or(AppError::Overflow)?;
+      pool_data.reserve_b = reserve_b;
     }
     // Update pool
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;

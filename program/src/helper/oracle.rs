@@ -103,20 +103,31 @@ impl Oracle {
     let rs = reserve_s;
     let ra = reserve_a;
     let rb = reserve_b;
+    let rlpt = reserve_lpt;
 
     let (s1, _a1, _b1) = Self::_rake(delta_s, rs, ra, rb)?;
     let rs = rs.checked_add(delta_s)?;
+    let rs_prime = rs.checked_sub(s1)?;
+    let lpt1 = (s1 as u128)
+      .checked_mul(rlpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
+    let rlpt = rlpt.checked_add(lpt1)?;
+
     let (_a2, _b2, s2) = Self::_rake(delta_a, ra, rb, rs)?;
     let ra = ra.checked_add(delta_a)?;
+    let rs_prime = rs.checked_sub(s2)?;
+    let lpt2 = (s2 as u128)
+      .checked_mul(rlpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
+    let rlpt = rlpt.checked_add(lpt2)?;
+
     let (_b3, s3, _a3) = Self::_rake(delta_b, rb, rs, ra)?;
     let rb = rb.checked_add(delta_b)?;
-
-    let s_prime = s1.checked_add(s2)?.checked_add(s3)?;
-    let rs_prime = rs.checked_add(delta_s)?.checked_sub(s_prime)?;
-
-    let lpt = (s_prime as u128)
-      .checked_mul(reserve_lpt as u128)?
+    let rs_prime = rs.checked_sub(s3)?;
+    let lpt3 = (s3 as u128)
+      .checked_mul(rlpt as u128)?
       .checked_div(rs_prime as u128)? as u64;
+    let lpt = lpt1.checked_add(lpt2)?.checked_add(lpt3)?;
 
     Some((lpt, rs, ra, rb))
   }
