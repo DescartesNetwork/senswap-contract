@@ -9,7 +9,7 @@ use crate::schema::{
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
-  info,
+  msg,
   program_option::COption,
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
@@ -33,7 +33,7 @@ impl Processor {
         reserve_a,
         reserve_b,
       } => {
-        info!("Calling InitializePool function");
+        msg!("Calling InitializePool function");
         Self::initialize_pool(reserve_s, reserve_a, reserve_b, program_id, accounts)
       }
 
@@ -42,37 +42,37 @@ impl Processor {
         delta_a,
         delta_b,
       } => {
-        info!("Calling AddLiquidity function");
+        msg!("Calling AddLiquidity function");
         Self::add_liquidity(delta_s, delta_a, delta_b, program_id, accounts)
       }
 
       AppInstruction::RemoveLiquidity { lpt } => {
-        info!("Calling RemoveLiquidity function");
+        msg!("Calling RemoveLiquidity function");
         Self::remove_liquidity(lpt, program_id, accounts)
       }
 
       AppInstruction::Swap { amount, limit } => {
-        info!("Calling Swap function");
+        msg!("Calling Swap function");
         Self::swap(amount, limit, program_id, accounts)
       }
 
       AppInstruction::FreezePool {} => {
-        info!("Calling FreezePool function");
+        msg!("Calling FreezePool function");
         Self::freeze_pool(program_id, accounts)
       }
 
       AppInstruction::ThawPool {} => {
-        info!("Calling ThawPool function");
+        msg!("Calling ThawPool function");
         Self::thaw_pool(program_id, accounts)
       }
 
       AppInstruction::Earn { amount } => {
-        info!("Calling Earn function");
+        msg!("Calling Earn function");
         Self::earn(amount, program_id, accounts)
       }
 
       AppInstruction::TransferPoolOwnership {} => {
-        info!("Calling TransferPoolOwnership function");
+        msg!("Calling TransferPoolOwnership function");
         Self::transfer_pool_ownership(program_id, accounts)
       }
     }

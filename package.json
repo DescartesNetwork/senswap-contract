@@ -3,19 +3,11 @@
   "version": "0.0.1",
   "description": "Created by Soprox",
   "main": "index.js",
-  "testnetDefaultChannel": "v1.4.8",
+  "testnetDefaultChannel": "v1.6.9",
   "scripts": {
-    "start": "node src/client/index.js",
-    "build": "cargo build-bpf --manifest-path=./src/program/Cargo.toml --bpf-out-dir=dist/program",
-    "deploy": "node ./lib/deployer.js",
-    "clean": "cargo clean --manifest-path=./src/program/Cargo.toml && rm -rf ./dist && npm run clean:store",
-    "clean:store": "rm -rf store",
-    "localnet:update": "solana-localnet update",
-    "localnet:up": "npm run clean:store && set -x; solana-localnet down; set -e; solana-localnet up",
-    "localnet:down": "solana-localnet down",
-    "localnet:logs": "solana-localnet logs -f",
-    "postinstall": "npm run bpf-sdk:update && cargo update --manifest-path=src/program/Cargo.toml",
-    "bpf-sdk:update": "solana-bpf-sdk-install node_modules/@solana/web3.js && npm run clean"
+    "start": "echo Skip this one",
+    "build": "cargo build-bpf --manifest-path=./program/Cargo.toml --bpf-out-dir=dist",
+    "deploy": "solana program deploy -k ./dist/payer-keypair.json ./dist/main.so"
   },
   "repository": {
     "type": "git",
