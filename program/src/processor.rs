@@ -1,7 +1,7 @@
 use crate::error::AppError;
 use crate::helper::{oracle::Oracle, pubutil::Boolean};
 use crate::instruction::AppInstruction;
-use crate::interfaces::xsplt::XSPLT;
+use crate::interfaces::{xsplata::XSPLATA, xsplt::XSPLT};
 use crate::schema::{
   mint::Mint,
   pool::{Pool, PoolState},
@@ -110,18 +110,13 @@ impl Processor {
     let treasury_b_acc = next_account_info(accounts_iter)?;
 
     let treasurer = next_account_info(accounts_iter)?;
+    let system_program = next_account_info(accounts_iter)?;
     let splt_program = next_account_info(accounts_iter)?;
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
+    let splata_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[
-      payer,
-      pool_acc,
-      vault_acc,
-      treasury_s_acc,
-      treasury_a_acc,
-      treasury_b_acc,
-    ])?;
+    Self::is_signer(&[payer, pool_acc, vault_acc])?;
 
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
     let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
@@ -142,12 +137,15 @@ impl Processor {
     }
 
     // Initialize treasury S
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_s_acc,
-      mint_s_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_s_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token S
@@ -161,12 +159,15 @@ impl Processor {
     )?;
 
     // Initialize treasury A
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_a_acc,
-      mint_a_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_a_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token A
@@ -180,12 +181,15 @@ impl Processor {
     )?;
 
     // Initialize treasury B
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_b_acc,
-      mint_b_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_b_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token B
@@ -198,6 +202,18 @@ impl Processor {
       &[],
     )?;
 
+    // Initialize lpt account
+    XSPLATA::initialize_account(
+      payer,
+      lpt_acc,
+      payer,
+      mint_lpt_acc,
+      system_program,
+      splt_program,
+      sysvar_rent_acc,
+      splata_program,
+      seed,
+    )?;
     // Mint LPT
     XSPLT::mint_to(
       reserve_s,
