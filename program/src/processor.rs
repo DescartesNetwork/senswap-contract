@@ -95,7 +95,7 @@ impl Processor {
     let lpt_acc = next_account_info(accounts_iter)?;
     let mint_lpt_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
-    let proof_acc = next_account_info(accounts_iter)?; // program_id xor pool_id
+    let proof_acc = next_account_info(accounts_iter)?; // program_id xor treasurer xor pool_id
 
     let src_s_acc = next_account_info(accounts_iter)?;
     let mint_s_acc = next_account_info(accounts_iter)?;
