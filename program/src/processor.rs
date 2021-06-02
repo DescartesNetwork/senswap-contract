@@ -10,7 +10,6 @@ use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
   msg,
-  program_option::COption,
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
 };
@@ -96,6 +95,7 @@ impl Processor {
     let lpt_acc = next_account_info(accounts_iter)?;
     let mint_lpt_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
+    let proof_acc = next_account_info(accounts_iter)?; // program_id xor pool_id
 
     let src_s_acc = next_account_info(accounts_iter)?;
     let mint_s_acc = next_account_info(accounts_iter)?;
@@ -121,12 +121,10 @@ impl Processor {
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
     let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if pool_data.is_initialized() {
+    if pool_data.is_initialized() || mint_lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
-    if !mint_lpt_data.is_initialized()
-      || mint_lpt_data.supply > 0
-      || mint_lpt_data.freeze_authority != COption::Some(pool_acc.key.xor(treasurer.key))
+    if *proof_acc.key != program_id.xor(&(pool_acc.key.xor(treasurer.key)))
       || *mint_s_acc.key == *mint_a_acc.key
       || *mint_s_acc.key == *mint_b_acc.key
     {
@@ -202,6 +200,17 @@ impl Processor {
       &[],
     )?;
 
+    // Initialize mint
+    let mint_s_data = Mint::unpack_unchecked(&mint_s_acc.data.borrow())?;
+    XSPLT::initialize_mint(
+      mint_s_data.decimals,
+      mint_lpt_acc,
+      treasurer,
+      proof_acc,
+      sysvar_rent_acc,
+      splt_program,
+      seed,
+    )?;
     // Initialize lpt account
     XSPLATA::initialize_account(
       payer,
