@@ -13,6 +13,7 @@ impl XSPLT {
     decimals: u8,
     mint_acc: &AccountInfo<'a>,
     owner: &AccountInfo<'a>,
+    freeze_authority: &AccountInfo<'a>,
     sysvar_rent_acc: &AccountInfo<'a>,
     splt_program: &AccountInfo<'a>,
     seed: &[&[&[u8]]],
@@ -21,6 +22,7 @@ impl XSPLT {
       decimals,
       *mint_acc.key,
       *owner.key,
+      *freeze_authority.key,
       *sysvar_rent_acc.key,
       *splt_program.key,
     )?;

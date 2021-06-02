@@ -1,7 +1,7 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use num_enum::TryFromPrimitive;
 use solana_program::{
-  info,
+  msg,
   program_error::ProgramError,
   program_pack::{IsInitialized, Pack, Sealed},
   pubkey::Pubkey,
@@ -93,7 +93,7 @@ impl Pack for Pool {
   const LEN: usize = 32 + 1 + 32 + 32 + 3 * (32 + 32 + 8);
   // Unpack data from [u8] to the data struct
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-    info!("Read pool data");
+    msg!("Read pool data");
     let src = array_ref![src, 0, 313];
     let (
       owner,
@@ -128,7 +128,7 @@ impl Pack for Pool {
   }
   // Pack data from the data struct to [u8]
   fn pack_into_slice(&self, dst: &mut [u8]) {
-    info!("Write pool data");
+    msg!("Write pool data");
     let dst = array_mut_ref![dst, 0, 313];
     let (
       dst_owner,

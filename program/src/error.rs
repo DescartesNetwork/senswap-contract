@@ -2,7 +2,7 @@ use num_derive::FromPrimitive as DeriveFromPrimitive;
 use num_traits::FromPrimitive;
 use solana_program::{
   decode_error::DecodeError,
-  info,
+  msg,
   program_error::{PrintProgramError, ProgramError},
 };
 use thiserror::Error;
@@ -33,6 +33,10 @@ pub enum AppError {
   ZeroValue,
   #[error("Insufficient funds")]
   InsufficientFunds,
+  #[error("Invalid mint")]
+  InvalidMint,
+  #[error("Exceed limit")]
+  ExceedLimit,
 }
 
 impl From<AppError> for ProgramError {
@@ -53,16 +57,18 @@ impl PrintProgramError for AppError {
     E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
   {
     match self {
-      AppError::InvalidInstruction => info!("Error: Invalid instruction"),
-      AppError::InvalidOwner => info!("Error: Invalid owner"),
-      AppError::IncorrectProgramId => info!("Error: Incorrect program id"),
-      AppError::ConstructorOnce => info!("Error: Already constructed"),
-      AppError::NotInitialized => info!("Error: Not yet initialized"),
-      AppError::Overflow => info!("Error: Operation overflowed"),
-      AppError::UnmatchedPool => info!("Error: Pool unmatched"),
-      AppError::FrozenPool => info!("Error: Pool frozen"),
-      AppError::ZeroValue => info!("Error: Zero value"),
-      AppError::InsufficientFunds => info!("Error: Insufficient funds"),
+      AppError::InvalidInstruction => msg!("Error: Invalid instruction"),
+      AppError::InvalidOwner => msg!("Error: Invalid owner"),
+      AppError::IncorrectProgramId => msg!("Error: Incorrect program id"),
+      AppError::ConstructorOnce => msg!("Error: Already constructed"),
+      AppError::NotInitialized => msg!("Error: Not yet initialized"),
+      AppError::Overflow => msg!("Error: Operation overflowed"),
+      AppError::UnmatchedPool => msg!("Error: Pool unmatched"),
+      AppError::FrozenPool => msg!("Error: Pool frozen"),
+      AppError::ZeroValue => msg!("Error: Zero value"),
+      AppError::InsufficientFunds => msg!("Error: Insufficient funds"),
+      AppError::InvalidMint => msg!("Error: Invalid mint"),
+      AppError::ExceedLimit => msg!("Error: Exceed limit"),
     }
   }
 }

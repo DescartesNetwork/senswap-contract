@@ -2,11 +2,14 @@ use crate::error::AppError;
 use crate::helper::oracle::Oracle;
 use crate::instruction::AppInstruction;
 use crate::interfaces::{xsplata::XSPLATA, xsplt::XSPLT};
-use crate::schema::pool::{Pool, PoolState};
+use crate::schema::{
+  mint::Mint,
+  pool::{Pool, PoolState},
+};
 use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
-  info,
+  msg,
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
 };
@@ -29,13 +32,8 @@ impl Processor {
         reserve_a,
         reserve_b,
       } => {
-        info!("Calling InitializePool function");
+        msg!("Calling InitializePool function");
         Self::initialize_pool(reserve_s, reserve_a, reserve_b, program_id, accounts)
-      }
-
-      AppInstruction::InitializeLPT {} => {
-        info!("Calling InitializeLPT function");
-        Self::initialize_lpt(program_id, accounts)
       }
 
       AppInstruction::AddLiquidity {
@@ -43,47 +41,37 @@ impl Processor {
         delta_a,
         delta_b,
       } => {
-        info!("Calling AddLiquidity function");
+        msg!("Calling AddLiquidity function");
         Self::add_liquidity(delta_s, delta_a, delta_b, program_id, accounts)
       }
 
       AppInstruction::RemoveLiquidity { lpt } => {
-        info!("Calling RemoveLiquidity function");
+        msg!("Calling RemoveLiquidity function");
         Self::remove_liquidity(lpt, program_id, accounts)
       }
 
-      AppInstruction::Swap { amount } => {
-        info!("Calling Swap function");
-        Self::swap(amount, program_id, accounts)
-      }
-
-      AppInstruction::Transfer { lpt } => {
-        info!("Calling Transfer function");
-        Self::transfer(lpt, program_id, accounts)
+      AppInstruction::Swap { amount, limit } => {
+        msg!("Calling Swap function");
+        Self::swap(amount, limit, program_id, accounts)
       }
 
       AppInstruction::FreezePool {} => {
-        info!("Calling FreezePool function");
+        msg!("Calling FreezePool function");
         Self::freeze_pool(program_id, accounts)
       }
 
       AppInstruction::ThawPool {} => {
-        info!("Calling ThawPool function");
+        msg!("Calling ThawPool function");
         Self::thaw_pool(program_id, accounts)
       }
 
       AppInstruction::Earn { amount } => {
-        info!("Calling Earn function");
+        msg!("Calling Earn function");
         Self::earn(amount, program_id, accounts)
       }
 
-      AppInstruction::CloseLPT {} => {
-        info!("Calling CloseLPT function");
-        Self::close_lpt(program_id, accounts)
-      }
-
       AppInstruction::TransferPoolOwnership {} => {
-        info!("Calling TransferPoolOwnership function");
+        msg!("Calling TransferPoolOwnership function");
         Self::transfer_pool_ownership(program_id, accounts)
       }
     }
@@ -101,11 +89,13 @@ impl Processor {
     accounts: &[AccountInfo],
   ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
+    let payer = next_account_info(accounts_iter)?;
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let lpt_acc = next_account_info(accounts_iter)?;
     let mint_lpt_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
+    let proof_acc = next_account_info(accounts_iter)?; // Usually identical to program_id
 
     let src_s_acc = next_account_info(accounts_iter)?;
     let mint_s_acc = next_account_info(accounts_iter)?;
@@ -126,19 +116,12 @@ impl Processor {
     let splata_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[
-      owner,
-      pool_acc,
-      mint_lpt_acc,
-      vault_acc,
-      treasury_s_acc,
-      treasury_a_acc,
-      treasury_b_acc,
-    ])?;
+    Self::is_signer(&[payer, pool_acc, vault_acc])?;
 
     let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+    let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if pool_data.is_initialized() {
+    if pool_data.is_initialized() || mint_lpt_data.is_initialized() {
       return Err(AppError::ConstructorOnce.into());
     }
     if reserve_s == 0 || reserve_a == 0 || reserve_b == 0 {
@@ -146,12 +129,15 @@ impl Processor {
     }
 
     // Initialize treasury S
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_s_acc,
-      mint_s_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_s_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token S
@@ -159,18 +145,21 @@ impl Processor {
       reserve_s,
       src_s_acc,
       treasury_s_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
 
     // Initialize treasury A
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_a_acc,
-      mint_a_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_a_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token A
@@ -178,18 +167,21 @@ impl Processor {
       reserve_a,
       src_a_acc,
       treasury_a_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
 
     // Initialize treasury B
-    XSPLT::initialize_account(
+    XSPLATA::initialize_account(
+      payer,
       treasury_b_acc,
-      mint_b_acc,
       treasurer,
-      sysvar_rent_acc,
+      mint_b_acc,
+      system_program,
       splt_program,
+      sysvar_rent_acc,
+      splata_program,
       seed,
     )?;
     // Deposit token B
@@ -197,31 +189,33 @@ impl Processor {
       reserve_b,
       src_b_acc,
       treasury_b_acc,
-      owner,
+      payer,
       splt_program,
       &[],
     )?;
 
-    // Initialize mint LPT
+    // Initialize mint
+    let mint_s_data = Mint::unpack_unchecked(&mint_s_acc.data.borrow())?;
     XSPLT::initialize_mint(
-      9,
+      mint_s_data.decimals,
       mint_lpt_acc,
       treasurer,
+      proof_acc,
       sysvar_rent_acc,
       splt_program,
       seed,
     )?;
-    // Initialize associated LPT
+    // Initialize lpt account
     XSPLATA::initialize_account(
-      owner,
+      payer,
       lpt_acc,
-      owner,
+      payer,
       mint_lpt_acc,
       system_program,
       splt_program,
       sysvar_rent_acc,
       splata_program,
-      &[],
+      seed,
     )?;
     // Mint LPT
     XSPLT::mint_to(
@@ -262,31 +256,6 @@ impl Processor {
     Ok(())
   }
 
-  pub fn initialize_lpt(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let lpt_acc = next_account_info(accounts_iter)?;
-    let mint_lpt_acc = next_account_info(accounts_iter)?;
-    let system_program = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-    let sysvar_rent_acc = next_account_info(accounts_iter)?;
-    let splata_program = next_account_info(accounts_iter)?;
-
-    XSPLATA::initialize_account(
-      owner,
-      lpt_acc,
-      owner,
-      mint_lpt_acc,
-      system_program,
-      splt_program,
-      sysvar_rent_acc,
-      splata_program,
-      &[],
-    )?;
-
-    Ok(())
-  }
-
   pub fn add_liquidity(
     delta_s: u64,
     delta_a: u64,
@@ -315,6 +284,7 @@ impl Processor {
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
 
+    let mint_lpt_data = Mint::unpack(&mint_lpt_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
     if pool_data.mint_lpt != *mint_lpt_acc.key
@@ -328,33 +298,31 @@ impl Processor {
       return Err(AppError::ZeroValue.into());
     }
 
-    let (lpt, reserve_s, reserve_a, reserve_b) = Oracle::rake_in_fee(
+    let (lpt, reserve_s, reserve_a, reserve_b) = Oracle::rake(
       delta_s,
       delta_a,
       delta_b,
       pool_data.reserve_s,
       pool_data.reserve_a,
       pool_data.reserve_b,
+      mint_lpt_data.supply,
     )
     .ok_or(AppError::Overflow)?;
 
     // Deposit token
-    XSPLT::transfer(delta_s, src_s_acc, treasury_s_acc, owner, splt_program, &[])?;
-    XSPLT::transfer(delta_a, src_a_acc, treasury_a_acc, owner, splt_program, &[])?;
-    XSPLT::transfer(delta_b, src_b_acc, treasury_b_acc, owner, splt_program, &[])?;
+    if delta_s > 0 {
+      XSPLT::transfer(delta_s, src_s_acc, treasury_s_acc, owner, splt_program, &[])?;
+      pool_data.reserve_s = reserve_s;
+    }
+    if delta_a > 0 {
+      XSPLT::transfer(delta_a, src_a_acc, treasury_a_acc, owner, splt_program, &[])?;
+      pool_data.reserve_a = reserve_a;
+    }
+    if delta_b > 0 {
+      XSPLT::transfer(delta_b, src_b_acc, treasury_b_acc, owner, splt_program, &[])?;
+      pool_data.reserve_b = reserve_b;
+    }
     // Update pool
-    pool_data.reserve_s = pool_data
-      .reserve_s
-      .checked_add(reserve_s)
-      .ok_or(AppError::Overflow)?;
-    pool_data.reserve_a = pool_data
-      .reserve_a
-      .checked_add(reserve_a)
-      .ok_or(AppError::Overflow)?;
-    pool_data.reserve_b = pool_data
-      .reserve_b
-      .checked_add(reserve_b)
-      .ok_or(AppError::Overflow)?;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Mint LPT
     XSPLT::mint_to(lpt, mint_lpt_acc, lpt_acc, treasurer, splt_program, seed)?;
@@ -389,6 +357,7 @@ impl Processor {
     Self::is_signer(&[owner])?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
 
+    let mint_lpt_data = Mint::unpack(&mint_lpt_acc.data.borrow())?;
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     if pool_data.mint_lpt != *mint_lpt_acc.key
       || pool_data.treasury_s != *treasury_s_acc.key
@@ -405,16 +374,20 @@ impl Processor {
     }
 
     // Compute corresponding paid-back reserve
-    let delta_s = lpt;
-    let delta_a = (pool_data.reserve_a as u128)
-      .checked_mul(delta_s as u128)
+    let delta_s = (lpt as u128)
+      .checked_mul(pool_data.reserve_s as u128)
       .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve_s as u128)
+      .checked_div(mint_lpt_data.supply as u128)
       .ok_or(AppError::Overflow)? as u64;
-    let delta_b = (pool_data.reserve_b as u128)
-      .checked_mul(delta_s as u128)
+    let delta_a = (lpt as u128)
+      .checked_mul(pool_data.reserve_a as u128)
       .ok_or(AppError::Overflow)?
-      .checked_div(pool_data.reserve_s as u128)
+      .checked_div(mint_lpt_data.supply as u128)
+      .ok_or(AppError::Overflow)? as u64;
+    let delta_b = (lpt as u128)
+      .checked_mul(pool_data.reserve_b as u128)
+      .ok_or(AppError::Overflow)?
+      .checked_div(mint_lpt_data.supply as u128)
       .ok_or(AppError::Overflow)? as u64;
     // Burn LPT
     XSPLT::burn(lpt, lpt_acc, mint_lpt_acc, owner, splt_program, seed)?;
@@ -431,6 +404,9 @@ impl Processor {
       .reserve_b
       .checked_sub(delta_b)
       .ok_or(AppError::Overflow)?;
+    if pool_data.reserve_s == 0 {
+      pool_data.state = PoolState::Frozen;
+    }
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
     // Withdraw token
     XSPLT::transfer(
@@ -461,9 +437,14 @@ impl Processor {
     Ok(())
   }
 
-  pub fn swap(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn swap(
+    amount: u64,
+    limit: u64,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+  ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
+    let payer = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
     let vault_acc = next_account_info(accounts_iter)?;
 
@@ -479,7 +460,7 @@ impl Processor {
     let splt_program = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[owner])?;
+    Self::is_signer(&[payer])?;
 
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
@@ -510,9 +491,12 @@ impl Processor {
     let (new_ask_reserve, paid_amount, earning) =
       Oracle::curve_in_fee(new_bid_reserve, bid_reserve, ask_reserve, ask_code == 0)
         .ok_or(AppError::Overflow)?;
+    if paid_amount < limit {
+      return Err(AppError::ExceedLimit.into());
+    }
 
     // Transfer bid
-    XSPLT::transfer(amount, src_acc, treasury_bid_acc, owner, splt_program, &[])?;
+    XSPLT::transfer(amount, src_acc, treasury_bid_acc, payer, splt_program, &[])?;
     // Update bid pool data
     match bid_code {
       0 => pool_data.reserve_s = new_bid_reserve,
@@ -572,18 +556,6 @@ impl Processor {
     Ok(())
   }
 
-  pub fn transfer(lpt: u64, _program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let src_lpt_acc = next_account_info(accounts_iter)?;
-    let dst_lpt_acc = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-
-    XSPLT::transfer(lpt, src_lpt_acc, dst_lpt_acc, owner, splt_program, &[])?;
-
-    Ok(())
-  }
-
   pub fn freeze_pool(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
@@ -639,18 +611,6 @@ impl Processor {
     }
     // Transfer earning
     XSPLT::transfer(amount, vault_acc, dst_acc, treasurer, splt_program, seed)?;
-
-    Ok(())
-  }
-
-  pub fn close_lpt(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-    let accounts_iter = &mut accounts.iter();
-    let owner = next_account_info(accounts_iter)?;
-    let lpt_acc = next_account_info(accounts_iter)?;
-    let dst_acc = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
-
-    XSPLT::close_account(lpt_acc, dst_acc, owner, splt_program, &[])?;
 
     Ok(())
   }

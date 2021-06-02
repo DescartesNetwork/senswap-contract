@@ -1,5 +1,6 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use solana_program::{
+  msg,
   program_error::ProgramError,
   program_option::COption,
   program_pack::{IsInitialized, Pack, Sealed},
@@ -45,6 +46,7 @@ impl IsInitialized for Mint {
 impl Pack for Mint {
   const LEN: usize = 82;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    msg!("Read mint data");
     let src = array_ref![src, 0, 82];
     let (mint_authority, supply, decimals, is_initialized, freeze_authority) =
       array_refs![src, 36, 8, 1, 1, 36];
@@ -66,6 +68,7 @@ impl Pack for Mint {
     })
   }
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    msg!("Write mint data");
     let dst = array_mut_ref![dst, 0, 82];
     let (mint_authority_dst, supply_dst, decimals_dst, is_initialized_dst, freeze_authority_dst) =
       mut_array_refs![dst, 36, 8, 1, 1, 36];

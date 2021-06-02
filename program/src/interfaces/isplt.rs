@@ -15,6 +15,7 @@ impl ISPLT {
     decimals: u8,
     mint_acc: Pubkey,
     owner: Pubkey,
+    freeze_authority: Pubkey,
     sysvar_rent_acc: Pubkey,
     program_id: Pubkey,
   ) -> Result<Instruction, ProgramError> {
@@ -24,8 +25,8 @@ impl ISPLT {
     data.push(0);
     data.push(decimals);
     data.extend_from_slice(&owner.to_bytes());
-    // No freeze authority
-    data.push(0);
+    data.push(1);
+    data.extend_from_slice(&freeze_authority.to_bytes());
     // Build accounts
     let mut accounts = Vec::with_capacity(2);
     accounts.push(AccountMeta::new(mint_acc, false));

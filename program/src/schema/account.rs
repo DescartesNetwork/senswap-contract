@@ -1,6 +1,7 @@
 use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
 use num_enum::TryFromPrimitive;
 use solana_program::{
+  msg,
   program_error::ProgramError,
   program_option::COption,
   program_pack::{IsInitialized, Pack, Sealed},
@@ -64,6 +65,7 @@ impl IsInitialized for Account {
 impl Pack for Account {
   const LEN: usize = 165;
   fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
+    msg!("Read account data");
     let src = array_ref![src, 0, 165];
     let (mint, owner, amount, delegate, state, is_native, delegated_amount, close_authority) =
       array_refs![src, 32, 32, 8, 36, 1, 12, 8, 36];
@@ -80,6 +82,7 @@ impl Pack for Account {
     })
   }
   fn pack_into_slice(&self, dst: &mut [u8]) {
+    msg!("Write account data");
     let dst = array_mut_ref![dst, 0, 165];
     let (
       mint_dst,

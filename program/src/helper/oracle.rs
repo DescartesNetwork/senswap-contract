@@ -1,6 +1,5 @@
 use crate::helper::math::Roots;
 
-const DOUBLE_PRECISION: u128 = 1000000000000; // 10^12
 const TRIPPLE_PRECISION: u128 = 1000000000000000000; // 10^18
 const FEE: u64 = 2500000; // 0.25%
 const EARNING: u64 = 500000; // 0.05%
@@ -73,14 +72,10 @@ impl Oracle {
       .checked_div(TRIPPLE_PRECISION)?
       .checked_sub(reserve_s as u128)?;
     // Compute x
-    let sqrt_of_delta_plus_reserve = (delta as u128)
+    let x = z
       .checked_add(reserve_s as u128)?
-      .checked_mul(DOUBLE_PRECISION)?
-      .sqrt(); // Single precision
-    let sqrt_of_reserve = (reserve_s as u128).checked_mul(DOUBLE_PRECISION)?.sqrt(); // Single precision
-    let x = sqrt_of_delta_plus_reserve
-      .checked_mul(sqrt_of_reserve)?
-      .checked_div(DOUBLE_PRECISION)?
+      .checked_mul(reserve_s as u128)?
+      .sqrt()
       .checked_sub(reserve_s as u128)?;
     // Compute y
     let y = z.checked_sub(x)?;
@@ -103,37 +98,37 @@ impl Oracle {
     reserve_s: u64,
     reserve_a: u64,
     reserve_b: u64,
+    reserve_lpt: u64,
   ) -> Option<(u64, u64, u64, u64)> {
-    let (s1, a1, b1) = Self::_rake(delta_s, reserve_s, reserve_a, reserve_b)?;
-    let (a2, b2, s2) = Self::_rake(delta_a, reserve_a, reserve_b, reserve_s)?;
-    let (b3, s3, a3) = Self::_rake(delta_b, reserve_b, reserve_s, reserve_a)?;
-    let s = s1.checked_add(s2)?.checked_add(s3)?;
-    let _a = a1.checked_add(a2)?.checked_add(a3)?;
-    let _b = b1.checked_add(b2)?.checked_add(b3)?;
-    let new_reserve_s = reserve_s.checked_add(delta_s)?;
-    let new_reserve_a = reserve_a.checked_add(delta_a)?;
-    let new_reserve_b = reserve_b.checked_add(delta_b)?;
+    let rs = reserve_s;
+    let ra = reserve_a;
+    let rb = reserve_b;
+    let rlpt = reserve_lpt;
 
-    Some((s, new_reserve_s, new_reserve_a, new_reserve_b))
-  }
+    let (s1, _a1, _b1) = Self::_rake(delta_s, rs, ra, rb)?;
+    let rs = rs.checked_add(delta_s)?;
+    let rs_prime = rs.checked_sub(s1)?;
+    let lpt1 = (s1 as u128)
+      .checked_mul(rlpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
+    let rlpt = rlpt.checked_add(lpt1)?;
 
-  pub fn rake_in_fee(
-    delta_s: u64,
-    delta_a: u64,
-    delta_b: u64,
-    reserve_s: u64,
-    reserve_a: u64,
-    reserve_b: u64,
-  ) -> Option<(u64, u64, u64, u64)> {
-    let (s, new_reserve_s, new_reserve_a, new_reserve_b) =
-      Self::rake(delta_s, delta_a, delta_b, reserve_s, reserve_a, reserve_b)?;
+    let (_a2, _b2, s2) = Self::_rake(delta_a, ra, rb, rs)?;
+    let ra = ra.checked_add(delta_a)?;
+    let rs_prime = rs.checked_sub(s2)?;
+    let lpt2 = (s2 as u128)
+      .checked_mul(rlpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
+    let rlpt = rlpt.checked_add(lpt2)?;
 
-    let fee = (s as u128)
-      .checked_mul(FEE as u128)?
-      .checked_div(DECIMALS as u128)? as u64;
-    let s_in_fee = s.checked_sub(fee)?;
-    let new_reserve_s_in_fee = new_reserve_s.checked_add(fee)?;
+    let (_b3, s3, _a3) = Self::_rake(delta_b, rb, rs, ra)?;
+    let rb = rb.checked_add(delta_b)?;
+    let rs_prime = rs.checked_sub(s3)?;
+    let lpt3 = (s3 as u128)
+      .checked_mul(rlpt as u128)?
+      .checked_div(rs_prime as u128)? as u64;
+    let lpt = lpt1.checked_add(lpt2)?.checked_add(lpt3)?;
 
-    Some((s_in_fee, new_reserve_s_in_fee, new_reserve_a, new_reserve_b))
+    Some((lpt, rs, ra, rb))
   }
 }

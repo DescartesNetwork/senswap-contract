@@ -9,7 +9,6 @@ pub enum AppInstruction {
     reserve_a: u64,
     reserve_b: u64,
   },
-  InitializeLPT,
   AddLiquidity {
     delta_s: u64,
     delta_a: u64,
@@ -20,16 +19,13 @@ pub enum AppInstruction {
   },
   Swap {
     amount: u64,
-  },
-  Transfer {
-    lpt: u64,
+    limit: u64,
   },
   FreezePool,
   ThawPool,
   Earn {
     amount: u64,
   },
-  CloseLPT,
   TransferPoolOwnership,
 }
 impl AppInstruction {
@@ -60,8 +56,7 @@ impl AppInstruction {
           reserve_b,
         }
       }
-      1 => Self::InitializeLPT,
-      2 => {
+      1 => {
         let delta_s = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -83,7 +78,7 @@ impl AppInstruction {
           delta_b,
         }
       }
-      3 => {
+      2 => {
         let lpt = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -91,25 +86,22 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::RemoveLiquidity { lpt }
       }
-      4 => {
+      3 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::Swap { amount }
-      }
-      5 => {
-        let lpt = rest
-          .get(..8)
+        let limit = rest
+          .get(8..16)
           .and_then(|slice| slice.try_into().ok())
           .map(u64::from_le_bytes)
           .ok_or(AppError::InvalidInstruction)?;
-        Self::Transfer { lpt }
+        Self::Swap { amount, limit }
       }
-      6 => Self::FreezePool,
-      7 => Self::ThawPool,
-      8 => {
+      4 => Self::FreezePool,
+      5 => Self::ThawPool,
+      6 => {
         let amount = rest
           .get(..8)
           .and_then(|slice| slice.try_into().ok())
@@ -117,8 +109,7 @@ impl AppInstruction {
           .ok_or(AppError::InvalidInstruction)?;
         Self::Earn { amount }
       }
-      9 => Self::CloseLPT,
-      10 => Self::TransferPoolOwnership,
+      7 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
   }
