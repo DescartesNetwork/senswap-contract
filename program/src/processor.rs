@@ -144,7 +144,7 @@ impl Processor {
       splt_program,
       sysvar_rent_acc,
       splata_program,
-      seed,
+      &[],
     )?;
     // Deposit token S
     XSPLT::transfer(
@@ -166,7 +166,7 @@ impl Processor {
       splt_program,
       sysvar_rent_acc,
       splata_program,
-      seed,
+      &[],
     )?;
     // Deposit token A
     XSPLT::transfer(
@@ -188,7 +188,7 @@ impl Processor {
       splt_program,
       sysvar_rent_acc,
       splata_program,
-      seed,
+      &[],
     )?;
     // Deposit token B
     XSPLT::transfer(
@@ -221,7 +221,7 @@ impl Processor {
       splt_program,
       sysvar_rent_acc,
       splata_program,
-      seed,
+      &[],
     )?;
     // Mint LPT
     XSPLT::mint_to(
@@ -240,7 +240,7 @@ impl Processor {
       treasurer,
       sysvar_rent_acc,
       splt_program,
-      seed,
+      &[],
     )?;
 
     // Update pool data

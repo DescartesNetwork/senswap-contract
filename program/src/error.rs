@@ -21,8 +21,6 @@ pub enum AppError {
   IncorrectProgramId,
   #[error("Already constructed")]
   ConstructorOnce,
-  #[error("Not yet initialized")]
-  NotInitialized,
   #[error("Operation overflowed")]
   Overflow,
   #[error("Pool unmatched")]
@@ -61,7 +59,6 @@ impl PrintProgramError for AppError {
       AppError::InvalidOwner => msg!("Error: Invalid owner"),
       AppError::IncorrectProgramId => msg!("Error: Incorrect program id"),
       AppError::ConstructorOnce => msg!("Error: Already constructed"),
-      AppError::NotInitialized => msg!("Error: Not yet initialized"),
       AppError::Overflow => msg!("Error: Operation overflowed"),
       AppError::UnmatchedPool => msg!("Error: Pool unmatched"),
       AppError::FrozenPool => msg!("Error: Pool frozen"),
