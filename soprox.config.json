@@ -1,6 +1,6 @@
 {
   "network": {
-    "devnet": "https://devnet.solana.com",
+    "devnet": "https://api.devnet.solana.com",
     "testnet": "",
     "mainnet": ""
   },
