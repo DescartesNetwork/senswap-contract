@@ -201,7 +201,7 @@ impl Processor {
     )?;
 
     // Initialize mint
-    let mint_s_data = Mint::unpack_unchecked(&mint_s_acc.data.borrow())?;
+    let mint_s_data = Mint::unpack(&mint_s_acc.data.borrow())?;
     XSPLT::initialize_mint(
       mint_s_data.decimals,
       mint_lpt_acc,
