@@ -3,6 +3,7 @@ use crate::helper::{oracle::Oracle, pubutil::Boolean};
 use crate::instruction::AppInstruction;
 use crate::interfaces::{xsplata::XSPLATA, xsplt::XSPLT};
 use crate::schema::{
+  account::Account,
   mint::Mint,
   pool::{Pool, PoolState},
 };
@@ -10,8 +11,12 @@ use solana_program::{
   account_info::{next_account_info, AccountInfo},
   entrypoint::ProgramResult,
   msg,
+  program::invoke,
   program_pack::{IsInitialized, Pack},
   pubkey::{Pubkey, PubkeyError},
+  rent::Rent,
+  system_instruction,
+  sysvar::Sysvar,
 };
 
 pub struct Processor {}
@@ -65,9 +70,9 @@ impl Processor {
         Self::thaw_pool(program_id, accounts)
       }
 
-      AppInstruction::Earn { amount } => {
-        msg!("Calling Earn function");
-        Self::earn(amount, program_id, accounts)
+      AppInstruction::TranferVault {} => {
+        msg!("Calling TranferVault function");
+        Self::transfer_vault(program_id, accounts)
       }
 
       AppInstruction::TransferPoolOwnership {} => {
@@ -115,15 +120,10 @@ impl Processor {
     let sysvar_rent_acc = next_account_info(accounts_iter)?;
     let splata_program = next_account_info(accounts_iter)?;
 
-    Self::is_program(program_id, &[pool_acc])?;
-    Self::is_signer(&[payer, pool_acc, vault_acc])?;
+    Self::is_signer(&[payer, pool_acc, mint_lpt_acc])?;
 
-    let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
-    let mint_lpt_data = Mint::unpack_unchecked(&mint_lpt_acc.data.borrow())?;
+    Account::unpack(&vault_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if pool_data.is_initialized() || mint_lpt_data.is_initialized() {
-      return Err(AppError::ConstructorOnce.into());
-    }
     if *proof_acc.key != program_id.xor(&(pool_acc.key.xor(treasurer.key)))
       || *mint_s_acc.key == *mint_a_acc.key
       || *mint_s_acc.key == *mint_b_acc.key
@@ -200,6 +200,15 @@ impl Processor {
       &[],
     )?;
 
+    // Rent mint LPT account
+    Self::alloc_account(
+      Mint::LEN,
+      mint_lpt_acc,
+      payer,
+      splt_program.key,
+      sysvar_rent_acc,
+      system_program,
+    )?;
     // Initialize mint
     let mint_s_data = Mint::unpack(&mint_s_acc.data.borrow())?;
     XSPLT::initialize_mint(
@@ -233,16 +242,20 @@ impl Processor {
       seed,
     )?;
 
-    // Initialize vault
-    XSPLT::initialize_account(
-      vault_acc,
-      mint_s_acc,
-      treasurer,
+    // Rent pool account
+    Self::alloc_account(
+      Pool::LEN,
+      pool_acc,
+      payer,
+      program_id,
       sysvar_rent_acc,
-      splt_program,
-      &[],
+      system_program,
     )?;
-
+    Self::is_program(program_id, &[pool_acc])?;
+    let mut pool_data = Pool::unpack_unchecked(&pool_acc.data.borrow())?;
+    if pool_data.is_initialized() {
+      return Err(AppError::ConstructorOnce.into());
+    }
     // Update pool data
     pool_data.owner = *owner.key;
     pool_data.state = PoolState::Initialized;
@@ -594,29 +607,20 @@ impl Processor {
     Ok(())
   }
 
-  pub fn earn(amount: u64, program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+  pub fn transfer_vault(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    let vault_acc = next_account_info(accounts_iter)?;
-    let dst_acc = next_account_info(accounts_iter)?;
-    let treasurer = next_account_info(accounts_iter)?;
-    let splt_program = next_account_info(accounts_iter)?;
+    let new_vault = next_account_info(accounts_iter)?;
 
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
     Self::is_pool_owner(owner, pool_acc)?;
 
-    let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if pool_data.vault != *vault_acc.key {
-      return Err(AppError::InvalidOwner.into());
-    }
-    if amount == 0 {
-      return Err(AppError::ZeroValue.into());
-    }
-    // Transfer earning
-    XSPLT::transfer(amount, vault_acc, dst_acc, treasurer, splt_program, seed)?;
+    // Update pool data
+    let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
+    pool_data.vault = *new_vault.key;
+    Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
     Ok(())
   }
@@ -680,5 +684,39 @@ impl Processor {
       return Err(PubkeyError::InvalidSeeds);
     }
     Ok(seed)
+  }
+
+  pub fn alloc_account<'a>(
+    space: usize,
+    target_acc: &AccountInfo<'a>,
+    payer_acc: &AccountInfo<'a>,
+    owner_program_id: &Pubkey,
+    sysvar_rent_acc: &AccountInfo<'a>,
+    system_acc: &AccountInfo<'a>,
+  ) -> ProgramResult {
+    // Fund the associated token account with the minimum balance to be rent exempt
+    let rent = &Rent::from_account_info(sysvar_rent_acc)?;
+    let required_lamports = rent
+      .minimum_balance(space)
+      .max(1)
+      .saturating_sub(target_acc.lamports());
+
+    if required_lamports > 0 {
+      invoke(
+        &system_instruction::transfer(payer_acc.key, target_acc.key, required_lamports),
+        &[payer_acc.clone(), target_acc.clone(), system_acc.clone()],
+      )?;
+    }
+
+    invoke(
+      &system_instruction::allocate(target_acc.key, space as u64),
+      &[target_acc.clone(), target_acc.clone(), system_acc.clone()],
+    )?;
+
+    invoke(
+      &system_instruction::assign(target_acc.key, owner_program_id),
+      &[target_acc.clone(), target_acc.clone(), system_acc.clone()],
+    )?;
+    Ok(())
   }
 }

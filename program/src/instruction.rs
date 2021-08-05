@@ -23,9 +23,7 @@ pub enum AppInstruction {
   },
   FreezePool,
   ThawPool,
-  Earn {
-    amount: u64,
-  },
+  TranferVault,
   TransferPoolOwnership,
 }
 impl AppInstruction {
@@ -101,14 +99,7 @@ impl AppInstruction {
       }
       4 => Self::FreezePool,
       5 => Self::ThawPool,
-      6 => {
-        let amount = rest
-          .get(..8)
-          .and_then(|slice| slice.try_into().ok())
-          .map(u64::from_le_bytes)
-          .ok_or(AppError::InvalidInstruction)?;
-        Self::Earn { amount }
-      }
+      6 => Self::TranferVault,
       7 => Self::TransferPoolOwnership,
       _ => return Err(AppError::InvalidInstruction.into()),
     })
