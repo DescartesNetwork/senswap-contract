@@ -614,7 +614,13 @@ impl Processor {
     let accounts_iter = &mut accounts.iter();
     let owner = next_account_info(accounts_iter)?;
     let pool_acc = next_account_info(accounts_iter)?;
-    let new_vault = next_account_info(accounts_iter)?;
+    let new_vault_acc = next_account_info(accounts_iter)?;
+
+    let pool_data = Pool::unpack(&pool_acc.data.borrow())?;
+    let new_vault_data = Account::unpack(&new_vault_acc.data.borrow())?;
+    if pool_data.mint_s != new_vault_data.mint {
+      return Err(AppError::InvalidMint.into());
+    }
 
     Self::is_program(program_id, &[pool_acc])?;
     Self::is_signer(&[owner])?;
@@ -622,7 +628,7 @@ impl Processor {
 
     // Update pool data
     let mut pool_data = Pool::unpack(&pool_acc.data.borrow())?;
-    pool_data.vault = *new_vault.key;
+    pool_data.vault = *new_vault_acc.key;
     Pool::pack(pool_data, &mut pool_acc.data.borrow_mut())?;
 
     Ok(())
