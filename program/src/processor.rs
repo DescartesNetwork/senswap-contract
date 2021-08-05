@@ -122,9 +122,12 @@ impl Processor {
 
     Self::is_signer(&[payer, pool_acc, mint_lpt_acc])?;
 
-    Account::unpack(&vault_acc.data.borrow())?;
+    let vault_data = Account::unpack(&vault_acc.data.borrow())?;
     let seed: &[&[&[u8]]] = &[&[&Self::safe_seed(pool_acc, treasurer, program_id)?[..]]];
-    if *proof_acc.key != program_id.xor(&(pool_acc.key.xor(treasurer.key)))
+    if *proof_acc.key != program_id.xor(&(pool_acc.key.xor(treasurer.key))) {
+      return Err(AppError::UnmatchedPool.into());
+    }
+    if vault_data.mint != *mint_s_acc.key
       || *mint_s_acc.key == *mint_a_acc.key
       || *mint_s_acc.key == *mint_b_acc.key
     {
